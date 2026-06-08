@@ -1,7 +1,11 @@
 class RiskEngine:
 
     @staticmethod
-    def calculate(url_features, domain_info):
+    def calculate(
+        url_features,
+        domain_info,
+        html_analysis=None
+    ):
 
         score = 50
 
@@ -54,7 +58,7 @@ class RiskEngine:
             )
 
         # ==========================
-        # Subdominios
+        # Subdominios excesivos
         # ==========================
 
         if url_features.get(
@@ -69,7 +73,7 @@ class RiskEngine:
             )
 
         # ==========================
-        # Redirecciones
+        # Redirecciones sospechosas
         # ==========================
 
         if url_features.get(
@@ -98,7 +102,22 @@ class RiskEngine:
             )
 
         # ==========================
-        # Guiones
+        # Longitud Path
+        # ==========================
+
+        if url_features.get(
+            "path_length",
+            0
+        ) > 50:
+
+            score -= 10
+
+            reasons.append(
+                "Ruta excesivamente larga"
+            )
+
+        # ==========================
+        # Guiones excesivos
         # ==========================
 
         if url_features.get(
@@ -110,6 +129,54 @@ class RiskEngine:
 
             reasons.append(
                 "Demasiados guiones"
+            )
+
+        # ==========================
+        # Keywords sospechosas
+        # ==========================
+
+        suspicious_keywords = [
+
+            "login",
+            "signin",
+            "account",
+            "verify",
+            "verification",
+            "secure",
+            "security",
+            "password",
+            "reset",
+            "confirm",
+            "update",
+            "bank",
+            "wallet",
+            "paypal"
+        ]
+
+        full_url = url_features.get(
+            "full_url",
+            ""
+        ).lower()
+
+        matches = 0
+
+        for keyword in suspicious_keywords:
+
+            if keyword in full_url:
+
+                matches += 1
+
+        if matches >= 3:
+
+            penalty = min(
+                matches * 3,
+                25
+            )
+
+            score -= penalty
+
+            reasons.append(
+                f"Contiene {matches} palabras clave asociadas a phishing"
             )
 
         # ==========================
@@ -195,6 +262,86 @@ class RiskEngine:
             )
 
         # ==========================
+        # HTML ANALYSIS
+        # ==========================
+
+        if (
+            html_analysis
+            and html_analysis.get(
+                "success"
+            )
+        ):
+
+            html_features = (
+                html_analysis.get(
+                    "html_features",
+                    {}
+                )
+            )
+
+            if html_features.get(
+                "HasPasswordField"
+            ):
+
+                score -= 15
+
+                reasons.append(
+                    "Página contiene formulario de contraseña"
+                )
+
+            if html_features.get(
+                "HasHiddenFields"
+            ):
+
+                score -= 5
+
+                reasons.append(
+                    "Página contiene campos ocultos"
+                )
+
+            if not html_features.get(
+                "HasTitle"
+            ):
+
+                score -= 5
+
+                reasons.append(
+                    "Página sin título"
+                )
+
+            if not html_features.get(
+                "HasFavicon"
+            ):
+
+                score -= 3
+
+                reasons.append(
+                    "Página sin favicon"
+                )
+
+            if html_features.get(
+                "NoOfJS",
+                0
+            ) > 50:
+
+                score -= 10
+
+                reasons.append(
+                    "Cantidad elevada de JavaScript"
+                )
+
+            if html_features.get(
+                "NoOfImage",
+                0
+            ) > 100:
+
+                score -= 5
+
+                reasons.append(
+                    "Cantidad inusual de imágenes"
+                )
+
+        # ==========================
         # Limitar score
         # ==========================
 
@@ -204,7 +351,7 @@ class RiskEngine:
         )
 
         # ==========================
-        # Clasificación
+        # Clasificación final
         # ==========================
 
         if score >= 80:
