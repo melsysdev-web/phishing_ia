@@ -6,6 +6,8 @@ def extract_url_features(url: str):
 
     parsed = urlparse(url)
 
+    hostname = parsed.hostname or ""
+
     features = {
 
         "url_length": len(url),
@@ -27,11 +29,9 @@ def extract_url_features(url: str):
         "has_ip": bool(
             re.search(
                 r"\d+\.\d+\.\d+\.\d+",
-                parsed.netloc
+                hostname
             )
         ),
-
-        # NUEVAS FEATURES
 
         "contains_at_symbol": "@" in url,
 
@@ -39,10 +39,12 @@ def extract_url_features(url: str):
             "//" in parsed.path,
 
         "num_subdomains":
-             max(
-                 len(parsed.netloc.split(".")) - 2,
-                 0
-                )
-}
+            max(
+                len(hostname.split(".")) - 2,
+                0
+            ),
+
+        "full_url": url
+    }
 
     return features

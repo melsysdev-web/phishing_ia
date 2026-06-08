@@ -18,49 +18,110 @@ from backend.app.random_forest.predictor import (
     RandomForestPredictor
 )
 
+from backend.app.roberta.predictor import (
+    RobertaPredictor
+)
+
+from backend.app.ml.fusion.fusion_engine import (
+    FusionEngine
+)
+
+from backend.app.analyzers.html_analyzer import (
+    HtmlAnalyzer
+)
+
 
 class PhishingService:
 
     @staticmethod
     def analyze(url: str):
 
-        # Extraer características URL
+        # ==========================
+        # URL FEATURES
+        # ==========================
+
         url_features = extract_url_features(
             url
         )
 
-        # Información WHOIS
+        # ==========================
+        # DOMAIN INFO (WHOIS)
+        # ==========================
+
         domain_info = get_domain_info(
             url
         )
 
-        # Motor de riesgo actual
+        # ==========================
+        # HTML ANALYZER
+        # ==========================
+
+        html_analysis = HtmlAnalyzer.analyze(
+            url
+        )
+
+        # ==========================
+        # RISK ENGINE
+        # ==========================
+
         risk_result = RiskEngine.calculate(
             url_features,
-            domain_info
+            domain_info,
+            html_analysis
         )
 
-        # Convertir al formato esperado por Random Forest
+        # ==========================
+        # RANDOM FOREST
+        # ==========================
+
         rf_features = FeatureMapper.map(
             url,
-            url_features
+            url_features,
+            html_analysis
         )
 
-        # Predicción ML
-        ml_prediction = (
+        rf_prediction = (
             RandomForestPredictor.predict(
                 rf_features
             )
         )
 
+        # ==========================
+        # ROBERTA
+        # ==========================
+
+        roberta_prediction = (
+            RobertaPredictor.predict(url)
+        )
+
+        # ==========================
+        # FUSION (RF + RoBERTa)
+        # ==========================
+
+        fusion_result = FusionEngine.combine(
+            rf_prediction,
+            roberta_prediction
+        )
+
+        # ==========================
+        # RESPONSE
+        # ==========================
+
         return {
+
             "url": url,
 
             "risk_assessment":
                 risk_result,
 
-            "machine_learning":
-                ml_prediction,
+            "machine_learning": {
+                "fusion": fusion_result,
+                "random_forest": rf_prediction,
+                "roberta": roberta_prediction
+            },
+
+            "html_analysis":
+                html_analysis,
 
             "url_features":
                 url_features,
