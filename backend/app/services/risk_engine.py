@@ -4,7 +4,9 @@ class RiskEngine:
     def calculate(
         url_features,
         domain_info,
-        html_analysis=None
+        html_analysis=None,
+        vt_result=None,
+        sb_result=None
     ):
 
         score = 50
@@ -339,6 +341,83 @@ class RiskEngine:
 
                 reasons.append(
                     "Cantidad inusual de imágenes"
+                )
+
+        # ==========================
+        # VIRUSTOTAL
+        # ==========================
+
+        if (
+            vt_result
+            and "error" not in vt_result
+        ):
+
+            verdict = vt_result.get("verdict")
+
+            if verdict == "malicious":
+
+                score -= 40
+
+                malicious_count = (
+                    vt_result
+                    .get("stats", {})
+                    .get("malicious", 0)
+                )
+
+                reasons.append(
+                    f"VirusTotal: {malicious_count} "
+                    f"motores lo clasifican como malicioso"
+                )
+
+            elif verdict == "suspicious":
+
+                score -= 20
+
+                reasons.append(
+                    "VirusTotal: URL marcada como sospechosa"
+                )
+
+            elif verdict == "clean":
+
+                score += 10
+
+                reasons.append(
+                    "VirusTotal: URL limpia"
+                )
+
+        # ==========================
+        # SAFE BROWSING
+        # ==========================
+
+        if (
+            sb_result
+            and "error" not in sb_result
+            and sb_result.get("is_threat")
+        ):
+
+            verdict = sb_result.get("verdict")
+
+            threat_types = [
+                t.get("type")
+                for t in sb_result.get("threats", [])
+            ]
+
+            if verdict == "dangerous":
+
+                score -= 50
+
+                reasons.append(
+                    "Google Safe Browsing: URL detectada como "
+                    + ", ".join(threat_types)
+                )
+
+            elif verdict == "suspicious":
+
+                score -= 25
+
+                reasons.append(
+                    "Google Safe Browsing: URL marcada como "
+                    + ", ".join(threat_types)
                 )
 
         # ==========================

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI Phishing Detector</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="container">
+
+    <header class="header">
+      <span class="header-icon">🛡️</span>
+      <h1 class="header-title">AI Phishing Detector</h1>
+    </header>
+
+    <div class="url-bar">
+      <span class="url-icon">🔗</span>
+      <span class="url-text" id="urlText">Cargando...</span>
+    </div>
+
+    <!-- Cargando -->
+    <div class="state" id="loadingState">
+      <div class="spinner"></div>
+      <p class="state-title">Analizando...</p>
+      <p class="state-sub">IA · VirusTotal · Safe Browsing</p>
+    </div>
+
+    <!-- Error -->
+    <div class="state hidden" id="errorState">
+      <div class="state-emoji">⚠️</div>
+      <p class="state-title">Sin conexión al backend</p>
+      <p class="state-sub" id="errorText">Asegúrate de que el servidor esté corriendo en localhost:8000</p>
+      <button class="btn-retry" id="retryBtn">Reintentar</button>
+    </div>
+
+    <!-- Resultados -->
+    <div class="results hidden" id="results">
+
+      <!-- Veredicto principal -->
+      <div class="verdict-card" id="verdictCard">
+        <div class="verdict-icon" id="verdictIcon">✅</div>
+        <div class="verdict-info">
+          <div class="verdict-label" id="verdictLabel">SEGURO</div>
+          <div class="verdict-text" id="verdictText">Esta URL parece segura</div>
+        </div>
+        <div class="verdict-score">
+          <span class="score-num" id="scoreNum">0</span>
+          <span class="score-total">/100</span>
+        </div>
+      </div>
+
+      <!-- Barra de puntuación -->
+      <div class="score-bar-wrap">
+        <div class="score-bar-track">
+          <div class="score-bar-fill" id="scoreBar" style="width:0%"></div>
+        </div>
+        <div class="score-scale">
+          <span>Peligroso</span>
+          <span>Seguro</span>
+        </div>
+      </div>
+
+      <!-- Threat Intelligence -->
+      <div class="intel-section">
+        <div class="intel-row" id="vtRow">
+          <div class="intel-dot" id="vtDot"></div>
+          <span class="intel-source">VirusTotal</span>
+          <span class="intel-result" id="vtResult">—</span>
+        </div>
+        <div class="divider"></div>
+        <div class="intel-row" id="sbRow">
+          <div class="intel-dot" id="sbDot"></div>
+          <span class="intel-source">Safe Browsing</span>
+          <span class="intel-result" id="sbResult">—</span>
+        </div>
+      </div>
+
+      <!-- Razones clave -->
+      <div class="reasons-section" id="reasonsSection">
+        <ul class="reasons-list" id="reasonsList"></ul>
+        <button class="btn-more hidden" id="btnMore">Ver más ›</button>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script src="../services/api_client.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

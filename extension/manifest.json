@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "AI Phishing Detector",
+  "version": "1.0.0",
+  "description": "Detecta phishing en tiempo real usando IA + VirusTotal + Google Safe Browsing",
+  "permissions": ["activeTab", "tabs"],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "AI Phishing Detector"
+  },
+  "background": {
+    "service_worker": "background/background.js"
+  }
+}
