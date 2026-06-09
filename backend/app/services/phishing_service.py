@@ -30,6 +30,14 @@ from backend.app.analyzers.html_analyzer import (
     HtmlAnalyzer
 )
 
+from backend.app.services.virustotal_service import (
+    VirusTotalService
+)
+
+from backend.app.services.safe_browsing_service import (
+    SafeBrowsingService
+)
+
 
 class PhishingService:
 
@@ -61,13 +69,31 @@ class PhishingService:
         )
 
         # ==========================
+        # VIRUSTOTAL
+        # ==========================
+
+        vt_result = VirusTotalService.analyze(
+            url
+        )
+
+        # ==========================
+        # SAFE BROWSING
+        # ==========================
+
+        sb_result = SafeBrowsingService.analyze(
+            url
+        )
+
+        # ==========================
         # RISK ENGINE
         # ==========================
 
         risk_result = RiskEngine.calculate(
             url_features,
             domain_info,
-            html_analysis
+            html_analysis,
+            vt_result,
+            sb_result
         )
 
         # ==========================
@@ -127,5 +153,11 @@ class PhishingService:
                 url_features,
 
             "domain_info":
-                domain_info
+                domain_info,
+
+            "virustotal":
+                vt_result,
+
+            "safe_browsing":
+                sb_result
         }
