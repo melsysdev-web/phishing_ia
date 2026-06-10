@@ -1,33 +1,38 @@
 from functools import lru_cache
-
-from bs4 import BeautifulSoup
+from pathlib import Path
 
 _MAX_TEXT_CHARS = 2000
 _MIN_TEXT_CHARS = 50
 
-_MODEL_ID = "hamzab/roberta-fake-news-classification"
+_REMOTE_MODEL  = "hamzab/roberta-fake-news-classification"
+_LOCAL_MODEL   = str(Path(__file__).resolve().parents[3] / "models" / "roberta_content")
+
+
+def _resolve_model() -> tuple[str, bool]:
+    """Returns (model_path_or_id, is_local)."""
+    local = Path(_LOCAL_MODEL)
+    if (local / "config.json").exists():
+        return _LOCAL_MODEL, True
+    return _REMOTE_MODEL, False
 
 
 @lru_cache(maxsize=1)
 def _load_pipeline():
     from transformers import pipeline
+
+    model_id, is_local = _resolve_model()
+
+    if is_local:
+        print(f"[ContentClassifier] Usando modelo local: {model_id}")
+    else:
+        print(f"[ContentClassifier] Usando modelo remoto: {model_id}")
+
     return pipeline(
         "text-classification",
-        model=_MODEL_ID,
+        model=model_id,
         truncation=True,
         max_length=512,
     )
-
-
-def _extract_text(html: str) -> str:
-    soup = BeautifulSoup(html, "lxml")
-
-    for tag in soup(["script", "style", "nav", "footer", "aside"]):
-        tag.decompose()
-
-    text = soup.get_text(separator=" ", strip=True)
-
-    return " ".join(text.split())[:_MAX_TEXT_CHARS]
 
 
 class ContentClassifierService:
@@ -48,7 +53,7 @@ class ContentClassifierService:
             label = result["label"].upper()
             confidence = round(result["score"], 4)
 
-            # Model outputs TRUE/FALSE — normalize to REAL/FAKE for clarity
+            # Normalize: local model uses FAKE/REAL, remote uses TRUE/FALSE
             normalized = (
                 "REAL" if label in ("TRUE", "REAL")
                 else "FAKE" if label in ("FALSE", "FAKE")
