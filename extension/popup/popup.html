@@ -22,7 +22,7 @@
     <div class="state" id="loadingState">
       <div class="spinner"></div>
       <p class="state-title">Analizando...</p>
-      <p class="state-sub">IA · VirusTotal · Safe Browsing</p>
+      <p class="state-sub">IA · VirusTotal · Safe Browsing · Fact Check</p>
     </div>
 
     <!-- Error -->
@@ -72,6 +72,26 @@
           <div class="intel-dot" id="sbDot"></div>
           <span class="intel-source">Safe Browsing</span>
           <span class="intel-result" id="sbResult">—</span>
+        </div>
+        <div class="divider"></div>
+        <div class="intel-row" id="fcRow">
+          <div class="intel-dot" id="fcDot"></div>
+          <span class="intel-source">Fact Check</span>
+          <span class="intel-result" id="fcResult">—</span>
+        </div>
+      </div>
+
+      <!-- Content Classification -->
+      <div class="content-section" id="contentSection">
+        <div class="content-header">
+          <span class="content-title">Análisis de contenido</span>
+          <span class="content-badge" id="contentBadge">—</span>
+        </div>
+        <div class="content-bar-wrap" id="contentBarWrap">
+          <div class="content-bar-track">
+            <div class="content-bar-fill" id="contentBar" style="width:0%"></div>
+          </div>
+          <span class="content-pct" id="contentPct">—</span>
         </div>
       </div>
 

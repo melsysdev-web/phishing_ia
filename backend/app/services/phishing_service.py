@@ -38,6 +38,14 @@ from backend.app.services.safe_browsing_service import (
     SafeBrowsingService
 )
 
+from backend.app.services.fact_check_service import (
+    FactCheckService
+)
+
+from backend.app.services.content_classifier_service import (
+    ContentClassifierService
+)
+
 
 class PhishingService:
 
@@ -85,6 +93,30 @@ class PhishingService:
         )
 
         # ==========================
+        # FACT CHECK
+        # ==========================
+
+        fc_result = FactCheckService.analyze(
+            url
+        )
+
+        # ==========================
+        # CONTENT CLASSIFIER (RoBERTa real/fake)
+        # ==========================
+
+        page_text = (
+            html_analysis.get("page_text", "")
+            if html_analysis.get("success")
+            else ""
+        )
+
+        content_result = (
+            ContentClassifierService.analyze(
+                page_text
+            )
+        )
+
+        # ==========================
         # RISK ENGINE
         # ==========================
 
@@ -93,7 +125,9 @@ class PhishingService:
             domain_info,
             html_analysis,
             vt_result,
-            sb_result
+            sb_result,
+            fc_result,
+            content_result
         )
 
         # ==========================
@@ -113,7 +147,7 @@ class PhishingService:
         )
 
         # ==========================
-        # ROBERTA
+        # ROBERTA (URL phishing)
         # ==========================
 
         roberta_prediction = (
@@ -159,5 +193,11 @@ class PhishingService:
                 vt_result,
 
             "safe_browsing":
-                sb_result
+                sb_result,
+
+            "fact_check":
+                fc_result,
+
+            "content_classification":
+                content_result
         }

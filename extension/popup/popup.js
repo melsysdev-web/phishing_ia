@@ -59,20 +59,22 @@ function toggle(id, visible) {
 // ─── Render principal ─────────────────────────────────────────────────────────
 
 function render(data) {
-  const risk  = data.risk_assessment || {};
-  const vt    = data.virustotal      || {};
-  const sb    = data.safe_browsing   || {};
+  const risk    = data.risk_assessment        || {};
+  const vt      = data.virustotal             || {};
+  const sb      = data.safe_browsing          || {};
+  const fc      = data.fact_check             || {};
+  const content = data.content_classification || {};
 
   const level   = (risk.risk || "HIGH").toLowerCase();
   const score   = risk.score ?? 0;
   const reasons = sortedReasons(risk.reasons || [], vt, sb);
 
-  // Clases de nivel en el contenedor results y verdict-card
   const resultsEl = document.getElementById("results");
   resultsEl.className = `results ${level}`;
 
   renderVerdict(level, score);
-  renderTheatIntel(vt, sb);
+  renderThreatIntel(vt, sb, fc);
+  renderContent(content);
   renderReasons(reasons);
 
   toggle("results", true);
@@ -113,9 +115,10 @@ function animateScore(target) {
 
 // ─── Threat Intel ─────────────────────────────────────────────────────────────
 
-function renderTheatIntel(vt, sb) {
+function renderThreatIntel(vt, sb, fc) {
   setIntelRow("vt", vtStatus(vt));
   setIntelRow("sb", sbStatus(sb));
+  setIntelRow("fc", fcStatus(fc));
 }
 
 function setIntelRow(prefix, { dot, text, cls }) {
@@ -151,6 +154,55 @@ function sbStatus(sb) {
   return { dot: "warn", text: types || "URL sospechosa", cls: "warn" };
 }
 
+function fcStatus(fc) {
+  if (!fc || fc.error) return { dot: "", text: "No disponible", cls: "" };
+
+  const verdict = fc.verdict;
+  const fake    = fc.fake_count    ?? 0;
+  const pub     = fc.publisher_count ?? 0;
+
+  if (verdict === "unreliable")
+    return { dot: "danger", text: `${fake} reclamación${fake !== 1 ? "es" : ""} falsa${fake !== 1 ? "s" : ""} detectada${fake !== 1 ? "s" : ""}`, cls: "danger" };
+  if (verdict === "suspicious")
+    return { dot: "warn", text: "Reclamaciones cuestionadas", cls: "warn" };
+  if (verdict === "reliable" && pub > 0)
+    return { dot: "safe", text: "Verificador reconocido", cls: "safe" };
+  if (verdict === "reliable")
+    return { dot: "safe", text: "Reclamaciones verificadas", cls: "safe" };
+
+  return { dot: "", text: "Sin datos", cls: "" };
+}
+
+// ─── Content Classification ───────────────────────────────────────────────────
+
+function renderContent(content) {
+  const label      = (content.label || "UNKNOWN").toUpperCase();
+  const confidence = content.confidence ?? 0;
+  const verdict    = content.verdict || "unknown";
+
+  const badge   = document.getElementById("contentBadge");
+  const bar     = document.getElementById("contentBar");
+  const pct     = document.getElementById("contentPct");
+  const wrap    = document.getElementById("contentBarWrap");
+
+  const isKnown = label === "REAL" || label === "FAKE";
+  const cls     = isKnown ? label.toLowerCase() : "unknown";
+
+  badge.textContent = isKnown ? label : "SIN DATOS";
+  badge.className   = `content-badge ${cls}`;
+
+  if (isKnown) {
+    const pctVal = Math.round(confidence * 100);
+    bar.style.width     = `${pctVal}%`;
+    bar.className       = `content-bar-fill ${cls}`;
+    pct.textContent     = `${pctVal}%`;
+    pct.className       = `content-pct ${cls}`;
+    wrap.style.display  = "flex";
+  } else {
+    wrap.style.display = "none";
+  }
+}
+
 function friendlyThreat(type) {
   const map = {
     MALWARE:                      "Malware",
@@ -168,8 +220,10 @@ function sortedReasons(reasons, vt, sb) {
     const l = r.toLowerCase();
     if (l.includes("safe browsing") || l.includes("google")) return 0;
     if (l.includes("virustotal"))                             return 1;
-    if (l.includes("dominio creado") || l.includes("30 días")) return 2;
-    return 3;
+    if (l.includes("fact check"))                            return 2;
+    if (l.includes("contenido"))                             return 3;
+    if (l.includes("dominio creado") || l.includes("30 días")) return 4;
+    return 5;
   };
   return [...reasons].sort((a, b) => priority(a) - priority(b));
 }
@@ -178,6 +232,10 @@ function reasonIcon(reason) {
   const l = reason.toLowerCase();
   if (l.includes("safe browsing") || l.includes("google")) return "🛡️";
   if (l.includes("virustotal"))                             return "🔍";
+  if (l.includes("fact check") || l.includes("verificador")) return "📰";
+  if (l.includes("contenido") && l.includes("falso"))      return "🚫";
+  if (l.includes("contenido") && l.includes("legítimo"))   return "✅";
+  if (l.includes("contenido"))                             return "🧠";
   if (l.includes("https") || l.includes("http"))           return "🔓";
   if (l.includes("dominio") || l.includes("días") || l.includes("antigüedad")) return "📅";
   if (l.includes("ip"))                                     return "🌐";
