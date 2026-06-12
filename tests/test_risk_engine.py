@@ -208,3 +208,49 @@ def test_score_never_below_zero(url_features_phishing, domain_info_suspicious):
 def test_score_never_above_100(url_features_safe, domain_info_trusted):
     result = RiskEngine.calculate(url_features_safe, domain_info_trusted)
     assert result["score"] <= 100
+
+
+# ── ML Fusion ─────────────────────────────────────────────────────────
+
+def test_ml_high_phishing_prob_penalizes():
+    base = RiskEngine.calculate(_base_features(), _base_domain())
+    with_ml = RiskEngine.calculate(
+        _base_features(), _base_domain(),
+        ml_result={"phishing_probability": 0.90, "legitimate_probability": 0.10}
+    )
+    assert with_ml["score"] < base["score"]
+    assert any("alta confianza" in r for r in with_ml["reasons"])
+
+
+def test_ml_moderate_phishing_prob_penalizes():
+    base = RiskEngine.calculate(_base_features(), _base_domain())
+    with_ml = RiskEngine.calculate(
+        _base_features(), _base_domain(),
+        ml_result={"phishing_probability": 0.70, "legitimate_probability": 0.30}
+    )
+    assert with_ml["score"] < base["score"]
+    assert any("ML" in r for r in with_ml["reasons"])
+
+
+def test_ml_low_phishing_prob_adds_score():
+    base = RiskEngine.calculate(_base_features(), _base_domain())
+    with_ml = RiskEngine.calculate(
+        _base_features(), _base_domain(),
+        ml_result={"phishing_probability": 0.10, "legitimate_probability": 0.90}
+    )
+    assert with_ml["score"] > base["score"]
+    assert any("legítima" in r for r in with_ml["reasons"])
+
+
+def test_ml_error_is_ignored():
+    base = RiskEngine.calculate(_base_features(), _base_domain())
+    with_error = RiskEngine.calculate(
+        _base_features(), _base_domain(),
+        ml_result={"error": "Both models failed"}
+    )
+    assert with_error["score"] == base["score"]
+
+
+def test_ml_none_is_ignored():
+    result = RiskEngine.calculate(_base_features(), _base_domain(), ml_result=None)
+    assert result is not None

@@ -6,7 +6,10 @@ class RiskEngine:
         domain_info,
         html_analysis=None,
         vt_result=None,
-        sb_result=None
+        sb_result=None,
+        fc_result=None,
+        content_result=None,
+        ml_result=None
     ):
 
         score = 50
@@ -418,6 +421,131 @@ class RiskEngine:
                 reasons.append(
                     "Google Safe Browsing: URL marcada como "
                     + ", ".join(threat_types)
+                )
+
+        # ==========================
+        # FACT CHECK
+        # ==========================
+
+        if (
+            fc_result
+            and "error" not in fc_result
+            and fc_result.get("verdict") != "no_data"
+        ):
+
+            fc_verdict = fc_result.get("verdict")
+
+            if fc_verdict == "unreliable":
+
+                score -= 30
+
+                reasons.append(
+                    "Fact Check: dominio asociado a "
+                    f"{fc_result.get('fake_count', 0)} "
+                    "verificaciones falsas"
+                )
+
+            elif fc_verdict == "suspicious":
+
+                score -= 15
+
+                reasons.append(
+                    "Fact Check: dominio con reclamaciones cuestionadas"
+                )
+
+            elif fc_verdict == "reliable":
+
+                score += 10
+
+                publisher_count = fc_result.get(
+                    "publisher_count", 0
+                )
+
+                if publisher_count > 0:
+                    reasons.append(
+                        "Fact Check: dominio reconocido como verificador"
+                    )
+                else:
+                    reasons.append(
+                        "Fact Check: dominio con reclamaciones verificadas"
+                    )
+
+        # ==========================
+        # CONTENT CLASSIFICATION
+        # ==========================
+
+        if (
+            content_result
+            and "error" not in content_result
+            and content_result.get("label") not in (
+                None, "UNKNOWN"
+            )
+        ):
+
+            label = content_result.get("label")
+            confidence = content_result.get("confidence", 0.0)
+
+            if label == "FAKE":
+
+                if confidence >= 0.80:
+
+                    score -= 25
+
+                    reasons.append(
+                        f"Contenido clasificado como FALSO "
+                        f"(confianza: {round(confidence * 100)}%)"
+                    )
+
+                else:
+
+                    score -= 10
+
+                    reasons.append(
+                        "Contenido posiblemente falso o engañoso"
+                    )
+
+            elif label == "REAL" and confidence >= 0.80:
+
+                score += 10
+
+                reasons.append(
+                    f"Contenido clasificado como legítimo "
+                    f"(confianza: {round(confidence * 100)}%)"
+                )
+
+        # ==========================
+        # MACHINE LEARNING (Fusion)
+        # ==========================
+
+        if (
+            ml_result
+            and "error" not in ml_result
+        ):
+            phishing_prob = ml_result.get("phishing_probability", 0.5)
+
+            if phishing_prob >= 0.85:
+                score -= 30
+                reasons.append(
+                    f"ML: modelos predicen phishing con alta confianza "
+                    f"({round(phishing_prob * 100)}%)"
+                )
+            elif phishing_prob >= 0.65:
+                score -= 15
+                reasons.append(
+                    f"ML: modelos predicen phishing "
+                    f"({round(phishing_prob * 100)}%)"
+                )
+            elif phishing_prob <= 0.20:
+                score += 15
+                reasons.append(
+                    f"ML: modelos confirman URL legítima "
+                    f"({round((1 - phishing_prob) * 100)}% confianza)"
+                )
+            elif phishing_prob <= 0.35:
+                score += 8
+                reasons.append(
+                    f"ML: modelos indican URL probablemente legítima "
+                    f"({round((1 - phishing_prob) * 100)}% confianza)"
                 )
 
         # ==========================
