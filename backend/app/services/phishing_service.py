@@ -102,7 +102,8 @@ class PhishingService:
             vt_result,
             sb_result,
             fc_result,
-            content_result
+            content_result,
+            fusion_result
         )
 
         # ── Respuesta ───────────────────────────────────────

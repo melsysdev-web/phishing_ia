@@ -7,6 +7,8 @@ const VERDICT = {
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
+
+  // ── Pestaña URL ───────────────────────────────────────────────────────────
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const url = tab?.url || "";
 
@@ -16,12 +18,36 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (!url || (!url.startsWith("http://") && !url.startsWith("https://"))) {
     showError("Esta página no tiene una URL HTTP/HTTPS analizable.");
-    return;
+  } else {
+    document.getElementById("retryBtn").addEventListener("click", () => analyze(url));
+    analyze(url);
   }
 
-  document.getElementById("retryBtn").addEventListener("click", () => analyze(url));
-  analyze(url);
+  // ── Pestaña Contenido ─────────────────────────────────────────────────────
+  const textarea   = document.getElementById("contentTextarea");
+  const charCount  = document.getElementById("charCount");
+  const analyzeBtn = document.getElementById("analyzeContentBtn");
+
+  textarea.addEventListener("input", () => {
+    charCount.textContent = textarea.value.length;
+  });
+
+  analyzeBtn.addEventListener("click", () => analyzeContentText(textarea, analyzeBtn));
+
+  // ── Cambio de pestañas ────────────────────────────────────────────────────
+  document.getElementById("tabUrl").addEventListener("click",     () => switchTab("url"));
+  document.getElementById("tabContent").addEventListener("click", () => switchTab("content"));
 });
+
+function switchTab(tab) {
+  const isUrl = tab === "url";
+  document.getElementById("panelUrl").classList.toggle("hidden", !isUrl);
+  document.getElementById("panelContent").classList.toggle("hidden", isUrl);
+  document.getElementById("tabUrl").classList.toggle("active", isUrl);
+  document.getElementById("tabContent").classList.toggle("active", !isUrl);
+}
+
+// ─── Análisis de URL ──────────────────────────────────────────────────────────
 
 async function analyze(url) {
   showLoading();
@@ -36,8 +62,6 @@ async function analyze(url) {
     );
   }
 }
-
-// ─── Estados ─────────────────────────────────────────────────────────────────
 
 function showLoading() {
   toggle("loadingState", true);
@@ -122,7 +146,7 @@ function renderThreatIntel(vt, sb, fc) {
 }
 
 function setIntelRow(prefix, { dot, text, cls }) {
-  document.getElementById(`${prefix}Dot`).className    = `intel-dot ${dot}`;
+  document.getElementById(`${prefix}Dot`).className      = `intel-dot ${dot}`;
   document.getElementById(`${prefix}Result`).textContent = text;
   document.getElementById(`${prefix}Result`).className   = `intel-result ${cls}`;
 }
@@ -173,17 +197,16 @@ function fcStatus(fc) {
   return { dot: "", text: "Sin datos", cls: "" };
 }
 
-// ─── Content Classification ───────────────────────────────────────────────────
+// ─── Content Classification (URL) ────────────────────────────────────────────
 
 function renderContent(content) {
   const label      = (content.label || "UNKNOWN").toUpperCase();
   const confidence = content.confidence ?? 0;
-  const verdict    = content.verdict || "unknown";
 
-  const badge   = document.getElementById("contentBadge");
-  const bar     = document.getElementById("contentBar");
-  const pct     = document.getElementById("contentPct");
-  const wrap    = document.getElementById("contentBarWrap");
+  const badge  = document.getElementById("contentBadge");
+  const bar    = document.getElementById("contentBar");
+  const pct    = document.getElementById("contentPct");
+  const wrap   = document.getElementById("contentBarWrap");
 
   const isKnown = label === "REAL" || label === "FAKE";
   const cls     = isKnown ? label.toLowerCase() : "unknown";
@@ -193,11 +216,11 @@ function renderContent(content) {
 
   if (isKnown) {
     const pctVal = Math.round(confidence * 100);
-    bar.style.width     = `${pctVal}%`;
-    bar.className       = `content-bar-fill ${cls}`;
-    pct.textContent     = `${pctVal}%`;
-    pct.className       = `content-pct ${cls}`;
-    wrap.style.display  = "flex";
+    bar.style.width    = `${pctVal}%`;
+    bar.className      = `content-bar-fill ${cls}`;
+    pct.textContent    = `${pctVal}%`;
+    pct.className      = `content-pct ${cls}`;
+    wrap.style.display = "flex";
   } else {
     wrap.style.display = "none";
   }
@@ -205,10 +228,10 @@ function renderContent(content) {
 
 function friendlyThreat(type) {
   const map = {
-    MALWARE:                      "Malware",
-    SOCIAL_ENGINEERING:           "Phishing / Ingeniería social",
-    UNWANTED_SOFTWARE:            "Software no deseado",
-    POTENTIALLY_HARMFUL_APPLICATION: "App potencialmente dañina",
+    MALWARE:                          "Malware",
+    SOCIAL_ENGINEERING:               "Phishing / Ingeniería social",
+    UNWANTED_SOFTWARE:                "Software no deseado",
+    POTENTIALLY_HARMFUL_APPLICATION:  "App potencialmente dañina",
   };
   return map[type] || type;
 }
@@ -279,4 +302,81 @@ function makeReasonLi(reason) {
   const li = document.createElement("li");
   li.innerHTML = `<span class="reason-icon">${reasonIcon(reason)}</span>${reason}`;
   return li;
+}
+
+// ─── Análisis de contenido manual ─────────────────────────────────────────────
+
+async function analyzeContentText(textarea, btn) {
+  const text = textarea.value.trim();
+
+  if (text.length < 50) {
+    showContentError("El texto es muy corto. Pega al menos un párrafo completo.");
+    return;
+  }
+
+  showContentLoading();
+  btn.disabled = true;
+
+  try {
+    const data = await ApiClient.analyzeContent(text);
+    if (data.error) throw new Error(data.error);
+    if (data.verdict === "no_content") {
+      showContentError("El texto no tiene suficiente contenido para clasificar.");
+      return;
+    }
+    renderContentResult(data);
+  } catch (err) {
+    showContentError(
+      err.message?.includes("Failed to fetch")
+        ? "No se pudo conectar al servidor. ¿Está corriendo en localhost:8000?"
+        : err.message || "Error desconocido."
+    );
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function showContentLoading() {
+  toggle("contentLoadingState", true);
+  toggle("contentErrorState", false);
+  toggle("contentResult", false);
+}
+
+function showContentError(msg) {
+  toggle("contentLoadingState", false);
+  toggle("contentErrorState", true);
+  toggle("contentResult", false);
+  document.getElementById("contentErrorText").textContent = msg;
+}
+
+function renderContentResult(data) {
+  const label      = (data.label || "UNKNOWN").toUpperCase();
+  const confidence = data.confidence ?? 0;
+  const pctVal     = Math.round(confidence * 100);
+  const isReal     = label === "REAL";
+  const isFake     = label === "FAKE";
+  const cls        = isReal ? "real" : isFake ? "fake" : "unknown";
+
+  document.getElementById("contentResultIcon").textContent = isReal ? "✅" : isFake ? "🚫" : "❓";
+
+  const labelEl     = document.getElementById("contentResultLabel");
+  labelEl.textContent = isReal ? "CONTENIDO REAL" : isFake ? "CONTENIDO FALSO" : "SIN DATOS";
+  labelEl.className   = `content-result-label ${cls}`;
+
+  document.getElementById("contentResultDesc").textContent =
+    isReal ? "Este texto parece ser contenido legítimo."
+    : isFake ? "Este texto presenta señales de desinformación."
+    : "No fue posible clasificar el contenido.";
+
+  const bar     = document.getElementById("contentResultBar");
+  bar.style.width = `${pctVal}%`;
+  bar.className   = `content-bar-fill ${cls}`;
+
+  const pct     = document.getElementById("contentResultPct");
+  pct.textContent = `${pctVal}%`;
+  pct.className   = `content-pct ${cls}`;
+
+  toggle("contentLoadingState", false);
+  toggle("contentErrorState", false);
+  toggle("contentResult", true);
 }

@@ -8,7 +8,8 @@ class RiskEngine:
         vt_result=None,
         sb_result=None,
         fc_result=None,
-        content_result=None
+        content_result=None,
+        ml_result=None
     ):
 
         score = 50
@@ -510,6 +511,41 @@ class RiskEngine:
                 reasons.append(
                     f"Contenido clasificado como legítimo "
                     f"(confianza: {round(confidence * 100)}%)"
+                )
+
+        # ==========================
+        # MACHINE LEARNING (Fusion)
+        # ==========================
+
+        if (
+            ml_result
+            and "error" not in ml_result
+        ):
+            phishing_prob = ml_result.get("phishing_probability", 0.5)
+
+            if phishing_prob >= 0.85:
+                score -= 30
+                reasons.append(
+                    f"ML: modelos predicen phishing con alta confianza "
+                    f"({round(phishing_prob * 100)}%)"
+                )
+            elif phishing_prob >= 0.65:
+                score -= 15
+                reasons.append(
+                    f"ML: modelos predicen phishing "
+                    f"({round(phishing_prob * 100)}%)"
+                )
+            elif phishing_prob <= 0.20:
+                score += 15
+                reasons.append(
+                    f"ML: modelos confirman URL legítima "
+                    f"({round((1 - phishing_prob) * 100)}% confianza)"
+                )
+            elif phishing_prob <= 0.35:
+                score += 8
+                reasons.append(
+                    f"ML: modelos indican URL probablemente legítima "
+                    f"({round((1 - phishing_prob) * 100)}% confianza)"
                 )
 
         # ==========================
