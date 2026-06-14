@@ -1,3 +1,6 @@
 chrome.runtime.onInstalled.addListener(() => {
-  console.log("AI Phishing Detector instalado.");
+  // Side panel se abre desde el botón de panel lateral de Chrome (no sobreescribe el popup)
+  chrome.sidePanel
+    .setPanelBehavior({ openPanelOnActionClick: false })
+    .catch(console.error);
 });
