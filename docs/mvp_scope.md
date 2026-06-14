@@ -1,96 +1,89 @@
-# AI Phishing Detector Extension
+# AI Phishing Detector — Alcance del Proyecto
 
 ## Descripción General
 
-AI Phishing Detector es una extensión para Google Chrome que utiliza Inteligencia Artificial, análisis de URLs e inteligencia de amenazas para identificar sitios web legítimos, sospechosos o potencialmente fraudulentos.
-
-El sistema analizará características de la URL, información del dominio, contenido web y fuentes externas de reputación para generar una evaluación de riesgo explicable para el usuario.
+AI Phishing Detector es una extensión para Google Chrome que detecta sitios de phishing en tiempo real usando un pipeline multi-señal: análisis de URL, información WHOIS, análisis HTML, modelos de Machine Learning y tres APIs externas de inteligencia de amenazas.
 
 ---
 
-# Objetivo General
+## Objetivo
 
-Desarrollar una extensión de navegador capaz de detectar sitios de phishing en tiempo real mediante el uso combinado de:
+Desarrollar una extensión de navegador que clasifique URLs como **Seguro / Sospechoso / Peligroso** mediante:
 
-* Machine Learning
-* Procesamiento de Lenguaje Natural (NLP)
-* Threat Intelligence
-* Análisis heurístico
-
----
-
-# Objetivos Específicos
-
-* Analizar características de URLs.
-* Analizar información WHOIS de dominios.
-* Detectar patrones comunes de phishing.
-* Consultar servicios de reputación externos.
-* Clasificar sitios web según su nivel de riesgo.
-* Mostrar explicaciones comprensibles para el usuario.
+- Machine Learning (Random Forest + RoBERTa)
+- NLP para clasificación de contenido
+- Threat Intelligence (VirusTotal, Google Safe Browsing, Fact Check)
+- Análisis heurístico de URL y dominio
 
 ---
 
-# Alcance del MVP
+## Estado de Implementación
 
-La primera versión incluirá:
+### Backend ✅
 
-### Backend
+- FastAPI con CORS configurado
+- Pipeline paralelo (2 oleadas con `ThreadPoolExecutor`)
+- Endpoint `POST /predict` — análisis completo de URL
+- Endpoint `POST /analyze-content` — solo clasificación de texto
+- Endpoints de cache: `GET /cache/stats`, `DELETE /cache`
+- Cache en memoria TTL 10 min, máx. 500 entradas
+- Configuración centralizada en `core/config.py`
 
-* FastAPI
-* API REST
+### Análisis de URL ✅
 
-### Análisis de URL
+- 12 features extraídas: HTTPS, IP, `@`, subdominios, longitud URL/path, guiones, query params, caracteres especiales, keywords phishing
+- Wrapper WHOIS: edad del dominio, TLD, fecha expiración, registrador
 
-* Longitud
-* HTTPS
-* Uso de IP
-* Subdominios
-* Guiones
-* Caracteres sospechosos
+### Análisis HTML ✅
 
-### Análisis de Dominio
+- Fetch del HTML con timeout
+- Extracción de: título, favicon, descripción, formularios de contraseña, campos ocultos, cantidad de JS/CSS/imágenes
 
-* Edad del dominio
-* Fecha de creación
-* Fecha de expiración
-* Registrador
+### Machine Learning ✅
 
-### Machine Learning
+| Modelo | Descripción |
+|---|---|
+| Random Forest v2 | 14 features URL+HTML, `random_forest_v2.pkl` |
+| RoBERTa URL | `distilroberta-base` fine-tuned en URLs (`models/roberta_phishing/`) |
+| Content Classifier | Fine-tuned en `GonzaloA/fake_news` (`models/roberta_content/`) |
+| FusionEngine | RF × 0.4 + RoBERTa URL × 0.6 |
 
-* Modelo RoBERTa basado en Hugging Face
+### Threat Intelligence ✅
 
-### Threat Intelligence
+| Servicio | Estado |
+|---|---|
+| VirusTotal v3 | Implementado — verdict: clean/suspicious/malicious |
+| Google Safe Browsing v4 | Implementado — detecta MALWARE, SOCIAL_ENGINEERING, UNWANTED_SOFTWARE |
+| Google Fact Check Tools | Implementado — verifica reputación del dominio como fuente de noticias |
 
-* Google Safe Browsing
-* VirusTotal
+### Chrome Extension ✅
 
-### Frontend
-
-* Extensión Chrome Manifest V3
+| Componente | Descripción |
+|---|---|
+| **Popup** | Input URL manual + botón pegar + gauge animado SVG (0-100) + veredicto |
+| **Sidebar** | Análisis completo: veredicto, score, sección ML, Threat Intel, razones, clasificador de contenido |
+| **Options** | URL del backend configurable, guardada en `chrome.storage.sync` |
+| **Manifest V3** | `storage`, `sidePanel` — sin `tabs`/`activeTab` |
 
 ---
 
-# Fuera de Alcance
+## Fuera de Alcance
 
-* Sistema multiusuario
-* Panel administrativo
-* Autenticación
-* Facturación
-* Kubernetes
-* Aplicación móvil
+- Sistema multiusuario / autenticación
+- Panel administrativo
+- Facturación / monetización
+- Kubernetes / deployment cloud
+- Aplicación móvil
+- Análisis de JavaScript ofuscado en profundidad
+- Historial local de URLs analizadas
 
 ---
 
-# Resultado Esperado
+## Resultado
 
-El sistema deberá clasificar sitios como:
+El sistema clasifica sitios como **LOW / MEDIUM / HIGH** mostrando:
 
-* Seguro
-* Sospechoso
-* Peligroso
-
-Mostrando:
-
-* Porcentaje de confianza
-* Evidencias encontradas
-* Recomendaciones
+- Score numérico 0-100 (gauge visual en popup)
+- Lista de razones que explican la clasificación
+- Detalles por señal: ML, VirusTotal, Safe Browsing, Fact Check, contenido
+- Configuración del backend desde la extensión

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Opciones — AI Phishing Detector</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <div class="page">
+
+    <header class="header">
+      <span class="header-icon">🛡️</span>
+      <div>
+        <h1 class="header-title">AI Phishing Detector</h1>
+        <p class="header-sub">Configuración</p>
+      </div>
+    </header>
+
+    <main class="main">
+
+      <!-- Servidor -->
+      <section class="card">
+        <h2 class="card-title">Servidor backend</h2>
+        <p class="card-desc">
+          URL base del servidor FastAPI que ejecutas localmente o en la nube.
+          Se usará en todas las peticiones de análisis.
+        </p>
+
+        <div class="field">
+          <label class="label" for="backendUrl">URL del backend</label>
+          <div class="input-row">
+            <input
+              type="url"
+              id="backendUrl"
+              class="input"
+              placeholder="http://localhost:8000"
+              spellcheck="false"
+              autocomplete="off"
+            />
+            <button class="btn-secondary" id="testBtn">Probar conexión</button>
+          </div>
+          <p class="field-status" id="testStatus"></p>
+        </div>
+      </section>
+
+      <!-- Acciones -->
+      <div class="actions">
+        <button class="btn-ghost" id="resetBtn">Restablecer valores</button>
+        <button class="btn-primary" id="saveBtn">Guardar cambios</button>
+      </div>
+      <p class="save-feedback" id="saveFeedback"></p>
+
+    </main>
+  </div>
+  <script src="options.js"></script>
+</body>
+</html>

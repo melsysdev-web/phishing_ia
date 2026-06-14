@@ -1,11 +1,9 @@
-import os
 import requests
 from urllib.parse import urlparse
-from dotenv import load_dotenv
 
-load_dotenv()
+from backend.app.core.config import settings
 
-_API_KEY = os.getenv("FACT_CHECK_API_KEY", "")
+_API_KEY = settings.fact_check_api_key
 _BASE_URL = "https://factchecktools.googleapis.com/v1alpha1/claims:search"
 
 _NEGATIVE_RATINGS = {

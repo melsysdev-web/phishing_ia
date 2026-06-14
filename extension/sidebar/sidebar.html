@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI Phishing Detector</title>
+  <link rel="stylesheet" href="sidebar.css" />
+</head>
+<body>
+  <div class="container">
+
+    <header class="header">
+      <span class="header-icon">🛡️</span>
+      <h1 class="header-title">AI Phishing Detector</h1>
+      <button class="btn-settings" id="settingsBtn" title="Configuración">⚙️</button>
+    </header>
+
+    <!-- Pestañas -->
+    <div class="tabs">
+      <button class="tab active" id="tabUrl">URL</button>
+      <button class="tab" id="tabContent">Contenido</button>
+    </div>
+
+    <!-- ── Panel URL ── -->
+    <div id="panelUrl">
+
+      <div class="url-input-section">
+        <input
+          type="url"
+          class="url-input"
+          id="urlInput"
+          placeholder="Pega o escribe una URL…"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button class="btn-go" id="analyzeBtn">Analizar</button>
+      </div>
+
+      <!-- Cargando -->
+      <div class="state hidden" id="loadingState">
+        <div class="spinner"></div>
+        <p class="state-title">Analizando...</p>
+        <p class="state-sub">IA · VirusTotal · Safe Browsing · Fact Check</p>
+      </div>
+
+      <!-- Error -->
+      <div class="state hidden" id="errorState">
+        <div class="state-emoji">⚠️</div>
+        <p class="state-title">Error de análisis</p>
+        <p class="state-sub" id="errorText"></p>
+        <button class="btn-retry" id="retryBtn">Reintentar</button>
+      </div>
+
+      <!-- Resultados -->
+      <div class="results hidden" id="results">
+
+        <!-- Veredicto principal -->
+        <div class="verdict-card" id="verdictCard">
+          <div class="verdict-icon" id="verdictIcon">✅</div>
+          <div class="verdict-info">
+            <div class="verdict-label" id="verdictLabel">SEGURO</div>
+            <div class="verdict-text" id="verdictText">Esta URL parece segura</div>
+          </div>
+          <div class="verdict-score">
+            <span class="score-num" id="scoreNum">0</span>
+            <span class="score-total">/100</span>
+          </div>
+        </div>
+
+        <!-- Barra de puntuación -->
+        <div class="score-bar-wrap">
+          <div class="score-bar-track">
+            <div class="score-bar-fill" id="scoreBar" style="width:0%"></div>
+          </div>
+          <div class="score-scale">
+            <span>Peligroso</span>
+            <span>Seguro</span>
+          </div>
+        </div>
+
+        <!-- Modelos IA -->
+        <div class="ml-section hidden" id="mlSection">
+          <div class="section-label">Modelos de IA</div>
+          <div class="ml-rows" id="mlRows"></div>
+        </div>
+
+        <!-- Threat Intelligence -->
+        <div class="intel-section">
+          <div class="intel-row">
+            <div class="intel-dot" id="vtDot"></div>
+            <span class="intel-source">VirusTotal</span>
+            <span class="intel-result" id="vtResult">—</span>
+          </div>
+          <div class="divider"></div>
+          <div class="intel-row">
+            <div class="intel-dot" id="sbDot"></div>
+            <span class="intel-source">Safe Browsing</span>
+            <span class="intel-result" id="sbResult">—</span>
+          </div>
+          <div class="divider"></div>
+          <div class="intel-row">
+            <div class="intel-dot" id="fcDot"></div>
+            <span class="intel-source">Fact Check</span>
+            <span class="intel-result" id="fcResult">—</span>
+          </div>
+        </div>
+
+        <!-- Content Classification -->
+        <div class="content-section">
+          <div class="content-header">
+            <span class="content-title">Análisis de contenido</span>
+            <span class="content-badge" id="contentBadge">—</span>
+          </div>
+          <div class="content-bar-wrap" id="contentBarWrap">
+            <div class="content-bar-track">
+              <div class="content-bar-fill" id="contentBar" style="width:0%"></div>
+            </div>
+            <span class="content-pct" id="contentPct">—</span>
+          </div>
+        </div>
+
+        <!-- Razones -->
+        <div class="reasons-section">
+          <div class="section-label">Señales detectadas</div>
+          <ul class="reasons-list" id="reasonsList"></ul>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── Panel Contenido ── -->
+    <div id="panelContent" class="hidden">
+
+      <div class="content-input-section">
+        <p class="content-input-hint">Pega el texto de un post, noticia o artículo para detectar si es contenido real o falso.</p>
+        <textarea
+          class="content-textarea"
+          id="contentTextarea"
+          placeholder="Ej: «El gobierno confirma que las vacunas contienen microchips...»"
+          maxlength="4000"
+        ></textarea>
+        <div class="content-char-count"><span id="charCount">0</span> / 4000</div>
+        <button class="btn-analyze" id="analyzeContentBtn">Analizar contenido</button>
+      </div>
+
+      <div class="state hidden" id="contentLoadingState">
+        <div class="spinner"></div>
+        <p class="state-title">Clasificando...</p>
+        <p class="state-sub">Modelo de lenguaje · RoBERTa</p>
+      </div>
+
+      <div class="state hidden" id="contentErrorState">
+        <div class="state-emoji">⚠️</div>
+        <p class="state-title">No se pudo analizar</p>
+        <p class="state-sub" id="contentErrorText"></p>
+      </div>
+
+      <div class="content-result hidden" id="contentResult">
+        <div class="content-result-icon" id="contentResultIcon">—</div>
+        <div class="content-result-label" id="contentResultLabel">—</div>
+        <p class="content-result-desc" id="contentResultDesc">—</p>
+        <div class="content-bar-wrap" id="contentResultBarWrap">
+          <div class="content-bar-track">
+            <div class="content-bar-fill" id="contentResultBar" style="width:0%"></div>
+          </div>
+          <span class="content-pct" id="contentResultPct">—</span>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script src="../services/api_client.js"></script>
+  <script src="sidebar.js"></script>
+</body>
+</html>

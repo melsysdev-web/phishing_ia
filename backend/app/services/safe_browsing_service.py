@@ -1,11 +1,8 @@
-import os
-
 import requests
-from dotenv import load_dotenv
 
-load_dotenv()
+from backend.app.core.config import settings
 
-_API_KEY = os.getenv("SAFE_BROWSING_API_KEY", "")
+_API_KEY = settings.safe_browsing_api_key
 _ENDPOINT = (
     "https://safebrowsing.googleapis.com"
     "/v4/threatMatches:find"

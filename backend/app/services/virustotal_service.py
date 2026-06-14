@@ -1,12 +1,10 @@
 import base64
-import os
 
 import requests
-from dotenv import load_dotenv
 
-load_dotenv()
+from backend.app.core.config import settings
 
-_API_KEY = os.getenv("VIRUSTOTAL_API_KEY", "")
+_API_KEY = settings.virustotal_api_key
 _BASE_URL = "https://www.virustotal.com/api/v3"
 
 
