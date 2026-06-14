@@ -8,7 +8,6 @@ class RiskEngine:
         vt_result=None,
         sb_result=None,
         fc_result=None,
-        content_result=None,
         ml_result=None
     ):
 
@@ -469,49 +468,6 @@ class RiskEngine:
                     reasons.append(
                         "Fact Check: dominio con reclamaciones verificadas"
                     )
-
-        # ==========================
-        # CONTENT CLASSIFICATION
-        # ==========================
-
-        if (
-            content_result
-            and "error" not in content_result
-            and content_result.get("label") not in (
-                None, "UNKNOWN"
-            )
-        ):
-
-            label = content_result.get("label")
-            confidence = content_result.get("confidence", 0.0)
-
-            if label == "FAKE":
-
-                if confidence >= 0.80:
-
-                    score -= 25
-
-                    reasons.append(
-                        f"Contenido clasificado como FALSO "
-                        f"(confianza: {round(confidence * 100)}%)"
-                    )
-
-                else:
-
-                    score -= 10
-
-                    reasons.append(
-                        "Contenido posiblemente falso o engañoso"
-                    )
-
-            elif label == "REAL" and confidence >= 0.80:
-
-                score += 10
-
-                reasons.append(
-                    f"Contenido clasificado como legítimo "
-                    f"(confianza: {round(confidence * 100)}%)"
-                )
 
         # ==========================
         # MACHINE LEARNING (Fusion)

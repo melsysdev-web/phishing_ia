@@ -15,8 +15,10 @@ class HtmlFeatures:
 
         favicon = soup.find(
             "link",
-            rel=lambda x:
-            x and "icon" in x.lower()
+            rel=lambda x: x and any(
+                "icon" in v.lower()
+                for v in (x if isinstance(x, list) else [x])
+            )
         )
 
         description = soup.find(

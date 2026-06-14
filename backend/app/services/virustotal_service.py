@@ -25,7 +25,9 @@ def _parse_stats(stats: dict) -> dict:
     undetected = stats.get("undetected", 0)
     total = malicious + suspicious + harmless + undetected
 
-    if malicious >= 3:
+    if total == 0:
+        verdict = "no_data"
+    elif malicious >= 3:
         verdict = "malicious"
     elif malicious > 0 or suspicious >= 2:
         verdict = "suspicious"

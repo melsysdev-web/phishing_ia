@@ -10,7 +10,6 @@ from backend.app.services.risk_engine import RiskEngine
 from backend.app.services.virustotal_service import VirusTotalService
 from backend.app.services.safe_browsing_service import SafeBrowsingService
 from backend.app.services.fact_check_service import FactCheckService
-from backend.app.services.content_classifier_service import ContentClassifierService
 
 from backend.app.random_forest.predictor import RandomForestPredictor
 from backend.app.roberta.predictor import RobertaPredictor
@@ -69,24 +68,9 @@ class PhishingService:
         fc_result          = group1["fc_result"]
         roberta_prediction = group1["roberta_prediction"]
 
-        # ── Grupo 2: dependen de html_analysis ─────────────
-        # rf_prediction y content_result corren en paralelo
-
-        page_text  = (
-            html_analysis.get("page_text", "")
-            if html_analysis.get("success") else ""
-        )
-        rf_features = FeatureMapper.map(url, url_features, html_analysis)
-
-        group2 = {}
-        with ThreadPoolExecutor(max_workers=2) as ex:
-            rf_fut      = ex.submit(_safe, RandomForestPredictor.predict, rf_features)
-            content_fut = ex.submit(_safe, ContentClassifierService.analyze, page_text)
-            group2["rf_prediction"]  = rf_fut.result()
-            group2["content_result"] = content_fut.result()
-
-        rf_prediction  = group2["rf_prediction"]
-        content_result = group2["content_result"]
+        # ── Grupo 2: depende de html_analysis ──────────────
+        rf_features   = FeatureMapper.map(url, url_features, html_analysis)
+        rf_prediction = _safe(RandomForestPredictor.predict, rf_features)
 
         # ── Secuencial: dependen de todo lo anterior ────────
 
@@ -102,7 +86,6 @@ class PhishingService:
             vt_result,
             sb_result,
             fc_result,
-            content_result,
             fusion_result
         )
 
@@ -127,7 +110,6 @@ class PhishingService:
             "virustotal":            vt_result,
             "safe_browsing":         sb_result,
             "fact_check":            fc_result,
-            "content_classification": content_result,
         }
 
         url_cache.set(url, result)
