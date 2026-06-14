@@ -1,11 +1,22 @@
 from backend.app.utils.feature_mapper import FeatureMapper
 
 EXPECTED_KEYS = [
-    'URLLength', 'DomainLength', 'PathLength', 'NumDots', 'NumHyphens',
-    'NumQuestionMarks', 'ContainsAtSymbol', 'ContainsDoubleSlashRedirect',
-    'IsDomainIP', 'TLDLength', 'NoOfSubDomain', 'IsHTTPS',
-    'HasTitle', 'HasFavicon', 'HasDescription',
-    'HasPasswordField', 'HasHiddenFields', 'NoOfImage', 'NoOfCSS', 'NoOfJS'
+    # URL structural
+    'URLLength', 'DomainLength', 'IsDomainIP', 'TLDLength', 'NoOfSubDomain', 'IsHTTPS',
+    # URL character analysis
+    'NoOfLettersInURL', 'LetterRatioInURL', 'NoOfDegitsInURL', 'DegitRatioInURL',
+    'NoOfEqualsInURL', 'NoOfAmpersandInURL', 'NoOfOtherSpecialCharsInURL',
+    'SpacialCharRatioInURL',
+    # URL obfuscation
+    'HasObfuscation', 'NoOfObfuscatedChar', 'ObfuscationRatio',
+    # HTML structure
+    'HasTitle', 'HasFavicon', 'HasDescription', 'HasPasswordField', 'HasHiddenFields',
+    'NoOfImage', 'NoOfCSS', 'NoOfJS',
+    # HTML behavior
+    'NoOfiFrame', 'HasExternalFormSubmit', 'HasSocialNet', 'HasSubmitButton',
+    'HasCopyrightInfo', 'IsResponsive',
+    # HTML links
+    'NoOfSelfRef', 'NoOfEmptyRef', 'NoOfExternalRef',
 ]
 
 
@@ -26,10 +37,9 @@ def test_booleans_converted_to_int(url_features_safe):
         {"html_features": {}}
     )
     assert result["IsHTTPS"] == 1
-    assert result["ContainsAtSymbol"] == 0
     assert result["IsDomainIP"] == 0
-    assert result["ContainsDoubleSlashRedirect"] == 0
     assert isinstance(result["IsHTTPS"], int)
+    assert isinstance(result["HasObfuscation"], int)
 
 
 def test_phishing_booleans_converted(url_features_phishing):
@@ -39,7 +49,6 @@ def test_phishing_booleans_converted(url_features_phishing):
         {"html_features": {}}
     )
     assert result["IsHTTPS"] == 0
-    assert result["ContainsAtSymbol"] == 1
     assert result["IsDomainIP"] == 1
 
 
@@ -51,10 +60,6 @@ def test_url_numeric_features_mapped(url_features_safe):
     )
     assert result["URLLength"] == url_features_safe["url_length"]
     assert result["DomainLength"] == url_features_safe["domain_length"]
-    assert result["PathLength"] == url_features_safe["path_length"]
-    assert result["NumDots"] == url_features_safe["num_dots"]
-    assert result["NumHyphens"] == url_features_safe["num_hyphens"]
-    assert result["NumQuestionMarks"] == url_features_safe["num_question_marks"]
 
 
 def test_html_features_passed_through(url_features_safe):
@@ -67,7 +72,10 @@ def test_html_features_passed_through(url_features_safe):
             "HasDescription": 1,
             "NoOfImage": 8,
             "NoOfCSS": 3,
-            "NoOfJS": 12
+            "NoOfJS": 12,
+            "NoOfiFrame": 2,
+            "HasSocialNet": 1,
+            "IsResponsive": 1,
         }
     }
     result = FeatureMapper.map(
@@ -82,6 +90,9 @@ def test_html_features_passed_through(url_features_safe):
     assert result["NoOfImage"] == 8
     assert result["NoOfCSS"] == 3
     assert result["NoOfJS"] == 12
+    assert result["NoOfiFrame"] == 2
+    assert result["HasSocialNet"] == 1
+    assert result["IsResponsive"] == 1
 
 
 def test_missing_html_features_default_to_zero(url_features_safe):
@@ -94,6 +105,9 @@ def test_missing_html_features_default_to_zero(url_features_safe):
     assert result["HasTitle"] == 0
     assert result["NoOfImage"] == 0
     assert result["NoOfJS"] == 0
+    assert result["NoOfiFrame"] == 0
+    assert result["NoOfSelfRef"] == 0
+    assert result["NoOfExternalRef"] == 0
 
 
 def test_tld_length_extracted_from_url(url_features_safe):
@@ -102,7 +116,7 @@ def test_tld_length_extracted_from_url(url_features_safe):
         url_features_safe,
         {"html_features": {}}
     )
-    assert result["TLDLength"] == 3  # "com" has length 3
+    assert result["TLDLength"] == 3  # "com"
 
 
 def test_subdomains_counted(url_features_safe):

@@ -67,7 +67,7 @@ class HtmlAnalyzer:
             }
 
         features = HtmlFeatures.extract(
-            page["html"]
+            page["html"], url
         )
 
         page_text = _extract_page_text(

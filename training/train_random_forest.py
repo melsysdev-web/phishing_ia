@@ -28,12 +28,27 @@ print(f"Registros encontrados: {len(df)}")
 # ==========================
 
 selected_features = [
+    # URL structural
     "URLLength",
     "DomainLength",
     "IsDomainIP",
     "TLDLength",
     "NoOfSubDomain",
     "IsHTTPS",
+    # URL character analysis
+    "NoOfLettersInURL",
+    "LetterRatioInURL",
+    "NoOfDegitsInURL",
+    "DegitRatioInURL",
+    "NoOfEqualsInURL",
+    "NoOfAmpersandInURL",
+    "NoOfOtherSpecialCharsInURL",
+    "SpacialCharRatioInURL",
+    # URL obfuscation
+    "HasObfuscation",
+    "NoOfObfuscatedChar",
+    "ObfuscationRatio",
+    # HTML structure
     "HasTitle",
     "HasFavicon",
     "HasDescription",
@@ -42,6 +57,17 @@ selected_features = [
     "NoOfImage",
     "NoOfCSS",
     "NoOfJS",
+    # HTML behavior
+    "NoOfiFrame",
+    "HasExternalFormSubmit",
+    "HasSocialNet",
+    "HasSubmitButton",
+    "HasCopyrightInfo",
+    "IsResponsive",
+    # HTML links
+    "NoOfSelfRef",
+    "NoOfEmptyRef",
+    "NoOfExternalRef",
 ]
 
 # ==========================

@@ -40,14 +40,14 @@ class RandomForestPredictor:
                 "prediction": int(
                     prediction
                 ),
-                "legitimate_probability":
+                "phishing_probability":
                     round(
                         float(
                             probabilities[0]
                         ),
                         4
                     ),
-                "phishing_probability":
+                "legitimate_probability":
                     round(
                         float(
                             probabilities[1]
