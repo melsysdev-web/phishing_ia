@@ -2,7 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 
 _MAX_TEXT_CHARS = 2000
-_MIN_TEXT_CHARS = 50
+_MIN_TEXT_CHARS = 300  # páginas sin artículo (homepages, apps) devuelven basura
 
 _REMOTE_MODEL  = "hamzab/roberta-fake-news-classification"
 _LOCAL_MODEL   = str(Path(__file__).resolve().parents[3] / "models" / "roberta_content")

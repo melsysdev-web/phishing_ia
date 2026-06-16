@@ -40,6 +40,11 @@ venv\Scripts\python backend/app/roberta/content_trainer.py
 venv\Scripts\python backend/app/roberta/content_trainer_es.py
 ```
 
+**Train standalone phishing classifier** (custom RoBERTa + classifier head, requires a CSV with `url,body,label` columns; saves to `checkpoints/phishing_detector/best_model.pt`):
+```powershell
+venv\Scripts\python scripts\run_training.py datasets\mi_dataset.csv
+```
+
 ## Architecture
 
 ### Analysis pipeline (`POST /predict`)
@@ -69,13 +74,39 @@ Results are cached in-memory (TTL 10 min, max 500 entries) keyed by URL.
 - `SAFE_BROWSING_API_KEY` — Google Safe Browsing v4
 - `FACT_CHECK_API_KEY` — Google Fact Check Tools API
 
-### Second endpoint (`POST /analyze-content`)
+### All endpoints
 
-Accepts raw text, runs only `ContentClassifierService`. Used independently from the URL pipeline.
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/predict` | Full URL analysis pipeline, returns cached result if available |
+| `POST` | `/analyze-content` | Raw text only → `ContentClassifierService` (REAL/FAKE) |
+| `GET` | `/health` | Liveness check used by the extension's connection test |
+| `GET` | `/cache/stats` | Cache hit/miss stats and entry count |
+| `DELETE` | `/cache` | Evict all cached results |
 
 ### Chrome extension (`extension/`)
 
-Manifest V3. `background.js` triggers on tab update, calls `POST /predict` via `services/api_client.js`, and the result is rendered in `popup/popup.html` with a three-state UI (safe / suspicious / dangerous).
+Manifest V3. The backend URL defaults to `http://localhost:8000` and is configurable via the options page (stored in `chrome.storage.sync`).
+
+`background.js` only sets `openPanelOnActionClick: false` on install — it does **not** auto-analyze tabs. Analysis is always user-initiated.
+
+Two UIs share `services/api_client.js`:
+- **Popup** (`popup/`) — compact gauge wheel, URL-only analysis
+- **Sidebar** (`sidebar/`) — richer panel with two tabs: URL analysis (verdict, ML model bars, threat intel) and Content analysis (calls `POST /analyze-content` with pasted text)
+
+`content.js` is a placeholder reserved for future in-page banner injection.
+
+### Standalone fine-tuning module (`phishing_detector/`)
+
+Independent from `backend/app/roberta/` — built around a custom classifier head (not `AutoModelForSequenceClassification`) for full control over the training loop. **Not yet wired into `PhishingService`** — it's a standalone library + CLI for experimenting with a from-scratch fine-tune.
+
+- `model.py` — `PhishingClassifier`: `roberta-base` encoder → pooler `[CLS]` output (768) → `Dropout→Linear(256)→ReLU→Dropout→Linear(2)`. `freeze_encoder()` / `unfreeze_last_n_layers(n)` support gradual fine-tuning.
+- `preprocess.py` — `normalize_url()` decodes percent-encoding and expands hex/octal/decimal IP literals (e.g. `0x7f000001` → `127.0.0.1`); `prepare_input(url, body)` produces `"[URL] {url} [BODY] {text}"`.
+- `dataset.py` — `PhishingDataset` tokenizes the entire text list once in `__init__` (batched), not per-`__getitem__`.
+- `train.py` — `train()`: AdamW + linear warmup (10% of steps) + early stopping (patience 3 on `val_loss`); always returns the model restored to its **best** checkpoint, not the last epoch's weights.
+- `predict.py` — `predict_single`/`predict_batch`; model+tokenizer are lazy-loaded once via `@lru_cache`, mirroring `ContentClassifierService`'s pattern. `predict_single` is a thin wrapper over `predict_batch`.
+- `evaluate.py` — `evaluate_model()` returns precision/recall/F1/AUC-ROC.
+- `scripts/run_training.py` — end-to-end CLI: validates CSV columns (`url,body,label`), splits stratified by label, trains, evaluates.
 
 ### Module layout
 
@@ -101,10 +132,26 @@ backend/app/
     url_cache.py         # Thread-safe in-memory TTL cache
   schemas/
     request_schema.py    # UrlRequest (validates http/https prefix), TextRequest
+    ml_response.py       # MLPredictionResponse pydantic model
+  core/
+    config.py            # Loads API keys from .env into a settings singleton
+
+phishing_detector/        # standalone module, see above — not wired into backend/
+  config.py              # MAX_LENGTH, BATCH_SIZE, LEARNING_RATE, etc.
+  model.py                # PhishingClassifier (RoBERTa + custom head)
+  preprocess.py            # normalize_url, clean_text, prepare_input
+  dataset.py                # PhishingDataset (batched tokenization)
+  train.py                   # AdamW + warmup + early stopping
+  predict.py                  # predict_single / predict_batch (lazy-loaded)
+  evaluate.py                  # precision/recall/F1/AUC-ROC
+
+scripts/
+  run_training.py             # CLI: CSV(url,body,label) → train → evaluate
 ```
 
 ## Key conventions
 
+- `RiskEngine` starts every URL at a score of **50** and applies positive/negative deltas from each signal. Final range is clamped to 0–100; ≥80 = LOW risk, ≥50 = MEDIUM, <50 = HIGH.
 - `_safe(fn, *args)` in `phishing_service.py` wraps every parallel call; a failed sub-service returns `{"error": "..."}` and never crashes the pipeline.
 - `FusionEngine` gracefully degrades: if one model errors, it uses the other at full weight.
 - `ContentClassifierService` is lazy-loaded (via `@lru_cache`) on first call; uses local model dir if `models/roberta_content/config.json` exists, else HuggingFace hub.

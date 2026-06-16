@@ -78,15 +78,8 @@ class PhishingService:
         )
         rf_features = FeatureMapper.map(url, url_features, html_analysis)
 
-        group2 = {}
-        with ThreadPoolExecutor(max_workers=2) as ex:
-            rf_fut      = ex.submit(_safe, RandomForestPredictor.predict, rf_features)
-            content_fut = ex.submit(_safe, ContentClassifierService.analyze, page_text)
-            group2["rf_prediction"]  = rf_fut.result()
-            group2["content_result"] = content_fut.result()
-
-        rf_prediction  = group2["rf_prediction"]
-        content_result = group2["content_result"]
+        rf_prediction  = _safe(RandomForestPredictor.predict, rf_features)
+        content_result = None
 
         # ── Secuencial: dependen de todo lo anterior ────────
 

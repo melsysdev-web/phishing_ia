@@ -132,9 +132,9 @@ class FactCheckService:
                     elif any(pos in rating for pos in _POSITIVE_RATINGS):
                         true_count += 1
 
-            if fake_count >= 2 and fake_count > true_count:
+            if fake_count >= 3 and fake_count > true_count:
                 verdict = "unreliable"
-            elif fake_count > 0:
+            elif fake_count >= 2:
                 verdict = "suspicious"
             elif publisher_count > 0:
                 # Domain is a known fact-checker — treat as reliable

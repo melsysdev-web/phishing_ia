@@ -6,11 +6,11 @@ from datetime import datetime, timezone
 
 def get_domain_info(url: str):
 
+    extracted = tldextract.extract(url)
+    domain = f"{extracted.domain}.{extracted.suffix}"
+    tld = extracted.suffix  # siempre disponible, independiente del WHOIS
+
     try:
-
-        extracted = tldextract.extract(url)
-
-        domain = f"{extracted.domain}.{extracted.suffix}"
 
         w = whois.whois(domain)
 
@@ -45,17 +45,17 @@ def get_domain_info(url: str):
             "creation_date": str(creation_date),
             "expiration_date": str(expiration_date),
             "domain_age_days": age_days,
-            "tld": extracted.suffix
+            "tld": tld
         }
 
     except Exception as e:
 
         return {
-            "domain": None,
+            "domain": domain,
             "registrar": None,
             "creation_date": None,
             "expiration_date": None,
             "domain_age_days": None,
-            "tld": None,
+            "tld": tld,
             "error": str(e)
         }

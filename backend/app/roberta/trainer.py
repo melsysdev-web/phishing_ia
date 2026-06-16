@@ -24,7 +24,7 @@ MODEL_NAME = "distilroberta-base"
 print("Cargando dataset...")
 
 df = pd.read_csv(
-    "datasets/roberta_dataset.csv"
+    "datasets/roberta_dataset_augmented.csv"
 )
 
 print(df.shape)
@@ -122,7 +122,7 @@ def compute_metrics(pred):
     }
 
 training_args = TrainingArguments(
-    output_dir="models/roberta_phishing",
+    output_dir="models/roberta_phishing_new",
 
     eval_strategy="epoch",
 
@@ -130,9 +130,9 @@ training_args = TrainingArguments(
 
     learning_rate=2e-5,
 
-    per_device_train_batch_size=16,
+    per_device_train_batch_size=8,
 
-    per_device_eval_batch_size=16,
+    per_device_eval_batch_size=8,
 
     num_train_epochs=2,
 
@@ -166,11 +166,11 @@ results = trainer.evaluate()
 print(results)
 
 trainer.save_model(
-    "models/roberta_phishing"
+    "models/roberta_phishing_new"
 )
 
 tokenizer.save_pretrained(
-    "models/roberta_phishing"
+    "models/roberta_phishing_new"
 )
 
 print(
