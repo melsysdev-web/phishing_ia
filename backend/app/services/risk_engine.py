@@ -68,8 +68,7 @@ class RiskEngine:
         vt_result=None,
         sb_result=None,
         fc_result=None,
-        content_result=None,
-        ml_result=None
+        ml_result=None,
     ):
         _signals = []
         authoritative_threat = False
@@ -179,6 +178,10 @@ class RiskEngine:
             has_title = bool(html_features.get("HasTitle", True))
             if not has_title:
                 _add(-5, "Página sin título")
+            if html_features.get("HasPasswordField"):
+                _add(-15, "Formulario con campo de contraseña detectado")
+            if html_features.get("HasHiddenFields"):
+                _add(-5, "Formulario con campos ocultos")
 
         # ── Regla combinada: dominio nuevo + sin título ───────────────────────
         # Phishing rápido típicamente lanza páginas sin título en dominios recién creados
@@ -260,3 +263,4 @@ class RiskEngine:
             "score": score,
             "reasons": reasons,
         }
+

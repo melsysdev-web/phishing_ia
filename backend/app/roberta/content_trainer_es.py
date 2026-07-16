@@ -34,8 +34,8 @@ EPOCHS     = 3
 BATCH_SIZE = 8
 LR         = 2e-5
 
-ID2LABEL = {0: "REAL", 1: "FAKE"}
-LABEL2ID = {"REAL": 0, "FAKE": 1}
+ID2LABEL = {0: "FAKE", 1: "REAL"}
+LABEL2ID = {"FAKE": 0, "REAL": 1}
 
 # ──────────────────────────────────────────────
 # Dataset

@@ -1,4 +1,3 @@
-from urllib.parse import urlparse
 import tldextract
 
 
@@ -7,7 +6,6 @@ class FeatureMapper:
     @staticmethod
     def map(url, url_features, html_analysis):
 
-        parsed = urlparse(url)
         ext = tldextract.extract(url)
         subdomain_str = ext.subdomain
         num_subdomains = len(subdomain_str.split(".")) if subdomain_str else 0

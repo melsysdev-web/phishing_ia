@@ -10,7 +10,6 @@ from backend.app.services.risk_engine import RiskEngine
 from backend.app.services.virustotal_service import VirusTotalService
 from backend.app.services.safe_browsing_service import SafeBrowsingService
 from backend.app.services.fact_check_service import FactCheckService
-from backend.app.services.content_classifier_service import ContentClassifierService
 
 from backend.app.random_forest.predictor import RandomForestPredictor
 from backend.app.roberta.predictor import RobertaPredictor
@@ -70,16 +69,10 @@ class PhishingService:
         roberta_prediction = group1["roberta_prediction"]
 
         # ── Grupo 2: dependen de html_analysis ─────────────
-        # rf_prediction y content_result corren en paralelo
 
-        page_text  = (
-            html_analysis.get("page_text", "")
-            if html_analysis.get("success") else ""
-        )
         rf_features = FeatureMapper.map(url, url_features, html_analysis)
 
-        rf_prediction  = _safe(RandomForestPredictor.predict, rf_features)
-        content_result = None
+        rf_prediction = _safe(RandomForestPredictor.predict, rf_features)
 
         # ── Secuencial: dependen de todo lo anterior ────────
 
@@ -95,8 +88,7 @@ class PhishingService:
             vt_result,
             sb_result,
             fc_result,
-            content_result,
-            fusion_result
+            ml_result=fusion_result,
         )
 
         # ── Respuesta ───────────────────────────────────────
@@ -120,7 +112,7 @@ class PhishingService:
             "virustotal":            vt_result,
             "safe_browsing":         sb_result,
             "fact_check":            fc_result,
-            "content_classification": content_result,
+            "content_classification": None,
         }
 
         url_cache.set(url, result)

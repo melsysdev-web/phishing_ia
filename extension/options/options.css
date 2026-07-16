@@ -86,8 +86,18 @@ body {
   font-weight: 500;
   min-height: 18px;
 }
-.field-status.ok  { color: var(--low); }
-.field-status.err { color: var(--high); }
+.field-status.ok   { color: var(--low); }
+.field-status.err  { color: var(--high); }
+.field-status.warn { color: #f59e0b; }
+
+code {
+  font-family: monospace;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 12px;
+}
 
 /* ── Buttons ── */
 .btn-primary {

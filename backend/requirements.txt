@@ -1,0 +1,30 @@
+# Dependencias runtime del backend (FastAPI + pipeline de analisis).
+# No incluye libs de entrenamiento (datasets, evaluate, accelerate, pytest...);
+# para eso usa el requirements.txt de la raiz.
+#
+# torch aqui es la build CPU (mas liviana, sin CUDA) para hosts sin GPU:
+#   pip install -r backend/requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+
+fastapi==0.136.3
+starlette==1.2.1
+uvicorn==0.48.0
+pydantic==2.13.4
+python-dotenv==1.2.2
+
+requests==2.34.2
+beautifulsoup4==4.14.3
+lxml==6.1.1
+tldextract==5.3.1
+python-whois==0.9.6
+
+joblib==1.5.3
+numpy==2.4.6
+pandas==3.0.3
+scikit-learn==1.8.0
+
+torch==2.11.0+cpu
+transformers==5.9.0
+tokenizers==0.22.2
+safetensors==0.7.0
+sentencepiece==0.2.1
+huggingface_hub==1.17.0

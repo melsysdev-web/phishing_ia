@@ -1,11 +1,12 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from backend.app.schemas.request_schema import UrlRequest, TextRequest
 from backend.app.services.phishing_service import PhishingService
 from backend.app.services.content_classifier_service import ContentClassifierService
 from backend.app.utils import url_cache
+from backend.app.core.security import require_api_key
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_api_key)])
 
 
 @router.post("/predict")

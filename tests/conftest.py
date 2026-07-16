@@ -49,6 +49,7 @@ _mock_tokenizer.return_value = {
 _mock_roberta_loader = MagicMock()
 _mock_roberta_loader.model = _mock_roberta_model
 _mock_roberta_loader.tokenizer = _mock_tokenizer
+_mock_roberta_loader.get_model.return_value = (_mock_tokenizer, _mock_roberta_model)
 sys.modules['backend.app.roberta.model_loader'] = _mock_roberta_loader
 
 

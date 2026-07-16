@@ -39,7 +39,33 @@
             />
             <button class="btn-secondary" id="testBtn">Probar conexión</button>
           </div>
+          <p class="field-status" id="httpWarning"></p>
           <p class="field-status" id="testStatus"></p>
+        </div>
+      </section>
+
+      <!-- API Key -->
+      <section class="card">
+        <h2 class="card-title">Autenticación</h2>
+        <p class="card-desc">
+          Clave de acceso al backend. Debe coincidir con <code>API_KEY</code> en
+          el archivo <code>.env</code> del servidor. Déjala vacía si no
+          configuraste autenticación.
+        </p>
+
+        <div class="field">
+          <label class="label" for="apiKey">API Key</label>
+          <div class="input-row">
+            <input
+              type="password"
+              id="apiKey"
+              class="input"
+              placeholder="Vacío = sin autenticación"
+              spellcheck="false"
+              autocomplete="off"
+            />
+            <button class="btn-secondary" id="toggleKey">Mostrar</button>
+          </div>
         </div>
       </section>
 

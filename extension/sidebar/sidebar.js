@@ -33,9 +33,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const charCount         = document.getElementById("charCount");
   const analyzeContentBtn = document.getElementById("analyzeContentBtn");
 
-  textarea.addEventListener("input", () => {
-    charCount.textContent = textarea.value.length;
-  });
+  textarea.addEventListener("input", updateCharCount);
+
+  document.getElementById("extractPageBtn").addEventListener("click", extractFromActivePage);
 
   analyzeContentBtn.addEventListener("click", () =>
     analyzeContentText(textarea, analyzeContentBtn)
@@ -317,12 +317,68 @@ function renderReasons(reasons) {
   });
 }
 
+// ─── Extracción de texto desde la pestaña activa ──────────────────────────────
+
+// Se serializa y ejecuta en el contexto de la página — no puede referenciar
+// variables del sidebar.
+function _extractPageText() {
+  const selectors = ["article p", "main p", "[role='main'] p", "p"];
+  for (const sel of selectors) {
+    const paras = Array.from(document.querySelectorAll(sel))
+      .map(p => p.innerText.trim())
+      .filter(t => t.length > 30);
+    const joined = paras.join(" ");
+    if (joined.length >= 100) return joined.slice(0, 2000);
+  }
+  return (document.body?.innerText || "").replace(/\s+/g, " ").trim().slice(0, 2000);
+}
+
+async function extractFromActivePage() {
+  const btn = document.getElementById("extractPageBtn");
+  btn.disabled = true;
+  btn.textContent = "Extrayendo...";
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id) throw new Error("no-tab");
+    const [{ result: text }] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: _extractPageText,
+    });
+    if (!text || text.length < 50) {
+      showContentError("No se pudo extraer suficiente texto de esta página.");
+      return;
+    }
+    document.getElementById("contentTextarea").value = text;
+    updateCharCount();
+  } catch (err) {
+    const msg = err?.message || "";
+    showContentError(
+      msg.includes("Cannot access") || msg.includes("chrome://") || msg.includes("no-tab")
+        ? "No se puede acceder a esta página (página del sistema o pestaña vacía)."
+        : "Error al extraer el texto. Intenta pegar el texto manualmente."
+    );
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "📄 Usar página actual";
+  }
+}
+
+// ─── Contador de caracteres con color ─────────────────────────────────────────
+
+function updateCharCount() {
+  const len       = document.getElementById("contentTextarea").value.length;
+  const countEl   = document.getElementById("charCount");
+  const wrapEl    = document.getElementById("charCountWrap");
+  countEl.textContent = len;
+  wrapEl.className = "content-char-count" + (len >= 300 ? " ok" : len > 0 ? " warn" : "");
+}
+
 // ─── Análisis de contenido manual ─────────────────────────────────────────────
 
 async function analyzeContentText(textarea, btn) {
   const text = textarea.value.trim();
-  if (text.length < 50) {
-    showContentError("El texto es muy corto. Pega al menos un párrafo completo.");
+  if (text.length < 300) {
+    showContentError("El texto es muy corto. Se necesitan al menos 300 caracteres para clasificar.");
     return;
   }
   showContentLoading();
@@ -364,6 +420,7 @@ function renderContentResult(data) {
   const pctVal  = Math.round((data.confidence ?? 0) * 100);
   const isReal  = label === "REAL";
   const isFake  = label === "FAKE";
+  const isKnown = isReal || isFake;
   const cls     = isReal ? "real" : isFake ? "fake" : "unknown";
 
   document.getElementById("contentResultIcon").textContent = isReal ? "✅" : isFake ? "🚫" : "❓";
@@ -384,6 +441,8 @@ function renderContentResult(data) {
   const pct = document.getElementById("contentResultPct");
   pct.textContent = `${pctVal}%`;
   pct.className   = `content-pct ${cls}`;
+
+  toggle("contentUncertainBadge", pctVal < 60 && isKnown);
 
   toggle("contentLoadingState", false);
   toggle("contentErrorState",   false);

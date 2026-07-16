@@ -67,10 +67,18 @@ python -m venv venv
 
 # 2. Instalar dependencias
 venv\Scripts\pip install -r requirements.txt
+```
 
+`requirements.txt` fija `torch`/`torchvision`/`torchaudio` con el sufijo `+cu128` (build CUDA 12.8). Si la máquina no tiene una GPU NVIDIA compatible con CUDA 12.8, ese paso falla al no encontrar la wheel. En ese caso, instalar antes la variante CPU (o la que corresponda a la GPU disponible) y luego el resto:
+
+```powershell
+venv\Scripts\pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+venv\Scripts\pip install -r requirements.txt
+```
+
+```powershell
 # 3. Configurar claves de API
-copy .env.example .env
-# Editar .env con tus claves
+# Crear .env en la raíz del proyecto (no está versionado) con el siguiente contenido
 ```
 
 ### `.env`
@@ -78,7 +86,17 @@ copy .env.example .env
 VIRUSTOTAL_API_KEY=tu_clave_aqui
 SAFE_BROWSING_API_KEY=tu_clave_aqui
 FACT_CHECK_API_KEY=tu_clave_aqui
+
+# Clave de autenticación del backend (dejar vacío = sin autenticación)
+API_KEY=
+
+# Orígenes CORS adicionales separados por coma (ej: https://mi-app.com)
+ALLOWED_ORIGINS=
 ```
+
+### Modelos entrenados
+
+La carpeta `models/` tampoco está versionada (pesa ~30 MB). Para correr el proyecto en otra máquina hay que copiarla manualmente desde una instalación existente, o reentrenar los modelos con los scripts de la sección [Modelos ML](#modelos-ml). Sin `models/roberta_content/`, el Content Classifier cae automáticamente al fallback de HuggingFace (`hamzab/roberta-fake-news-classification`, se descarga solo); sin `random_forest_v2.pkl` o `roberta_phishing/`, esas señales fallan de forma controlada (el pipeline no se cae, ver `_safe()` en `phishing_service.py`).
 
 ---
 
@@ -97,6 +115,16 @@ El servidor queda disponible en `http://localhost:8000`.
 | `POST` | `/analyze-content` | Clasificación de texto libre (REAL/FAKE) |
 | `GET` | `/cache/stats` | Estadísticas del cache en memoria |
 | `DELETE` | `/cache` | Limpiar cache |
+
+---
+
+## Despliegue en producción
+
+El backend se puede correr con Docker (`docker compose up backend`, ver `docker-compose.yml` y `backend/Dockerfile`), pero Uvicorn expone HTTP plano sin TLS. Para cualquier despliegue accesible fuera de `localhost`:
+
+- Poner un proxy inverso con TLS delante (nginx, Caddy, Traefik, etc.) — el contenedor del backend no debe exponerse directamente a internet.
+- Configurar `ENVIRONMENT=production` y `API_KEY` en `.env`. Con `ENVIRONMENT=production`, el backend **rehúsa arrancar** si `API_KEY` está vacío (evita quedar sin autenticación por descuido).
+- Revisar `ALLOWED_ORIGINS` si la extensión/cliente no corre desde `chrome-extension://` o `localhost`.
 
 ---
 
@@ -151,8 +179,8 @@ venv\Scripts\python backend/app/roberta/content_trainer_es.py
 ## Pruebas
 
 ```powershell
-# Test completo del HTML analyzer
-venv\Scripts\python -m pytest backend/app/analyzers/test_html_analyzer.py -v
+# Suite completa
+venv\Scripts\python -m pytest
 
 # Smoke test del Random Forest
 venv\Scripts\python -m backend.app.random_forest.test_predict
