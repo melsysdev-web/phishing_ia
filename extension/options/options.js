@@ -1,16 +1,50 @@
 const DEFAULT_BACKEND = "http://localhost:8000";
 
+function isLocalhost(url) {
+  try {
+    const { hostname, protocol } = new URL(url);
+    return protocol === "https:" ||
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "::1";
+  } catch {
+    return true;
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   const backendInput = document.getElementById("backendUrl");
+  const apiKeyInput  = document.getElementById("apiKey");
+  const toggleKey    = document.getElementById("toggleKey");
   const testBtn      = document.getElementById("testBtn");
   const testStatus   = document.getElementById("testStatus");
+  const httpWarning  = document.getElementById("httpWarning");
   const saveBtn      = document.getElementById("saveBtn");
   const resetBtn     = document.getElementById("resetBtn");
   const saveFeedback = document.getElementById("saveFeedback");
 
   // Cargar configuración guardada
-  chrome.storage.sync.get({ backendUrl: DEFAULT_BACKEND }, ({ backendUrl }) => {
+  chrome.storage.sync.get({ backendUrl: DEFAULT_BACKEND, apiKey: "" }, ({ backendUrl, apiKey }) => {
     backendInput.value = backendUrl;
+    apiKeyInput.value  = apiKey;
+    checkHttpWarning(backendUrl);
+  });
+
+  // Advertencia HTTP
+  function checkHttpWarning(url) {
+    if (!isLocalhost(url)) {
+      setStatus(httpWarning, "Advertencia: el backend usa HTTP sin cifrar. Usa HTTPS en producción.", "err");
+    } else {
+      httpWarning.textContent = "";
+    }
+  }
+  backendInput.addEventListener("input", () => checkHttpWarning(backendInput.value.trim()));
+
+  // Mostrar/ocultar API key
+  toggleKey.addEventListener("click", () => {
+    const hidden = apiKeyInput.type === "password";
+    apiKeyInput.type   = hidden ? "text" : "password";
+    toggleKey.textContent = hidden ? "Ocultar" : "Mostrar";
   });
 
   // Probar conexión
@@ -40,12 +74,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Guardar
   saveBtn.addEventListener("click", () => {
-    const url = backendInput.value.trim().replace(/\/$/, "");
+    const url    = backendInput.value.trim().replace(/\/$/, "");
+    const apiKey = apiKeyInput.value.trim();
     if (!url) {
       setFeedback(saveFeedback, "Introduce una URL válida.", "err");
       return;
     }
-    chrome.storage.sync.set({ backendUrl: url }, () => {
+    chrome.storage.sync.set({ backendUrl: url, apiKey }, () => {
       setFeedback(saveFeedback, "✓ Cambios guardados", "ok");
       clearAfter(saveFeedback, 3000);
     });
@@ -54,8 +89,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // Restablecer
   resetBtn.addEventListener("click", () => {
     backendInput.value = DEFAULT_BACKEND;
-    chrome.storage.sync.set({ backendUrl: DEFAULT_BACKEND }, () => {
-      setFeedback(saveFeedback, "✓ Restablecido a localhost:8000", "ok");
+    apiKeyInput.value  = "";
+    checkHttpWarning(DEFAULT_BACKEND);
+    chrome.storage.sync.set({ backendUrl: DEFAULT_BACKEND, apiKey: "" }, () => {
+      setFeedback(saveFeedback, "✓ Restablecido a valores por defecto", "ok");
       clearAfter(saveFeedback, 3000);
     });
   });

@@ -1,19 +1,18 @@
 const _DEFAULT_URL = "http://localhost:8000";
 
-async function _baseUrl() {
+async function _config() {
   return new Promise(resolve => {
-    chrome.storage.sync.get({ backendUrl: _DEFAULT_URL }, d => {
-      resolve(d.backendUrl.replace(/\/$/, ""));
-    });
+    chrome.storage.sync.get({ backendUrl: _DEFAULT_URL, apiKey: "" }, resolve);
   });
 }
 
 const ApiClient = {
   async analyze(url) {
-    const base = await _baseUrl();
+    const { backendUrl, apiKey } = await _config();
+    const base = backendUrl.replace(/\/$/, "");
     const res = await fetch(`${base}/predict`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
       body: JSON.stringify({ url }),
     });
     if (!res.ok) throw new Error(`Error del servidor: ${res.status}`);
@@ -21,18 +20,21 @@ const ApiClient = {
   },
 
   async analyzeContent(text) {
-    const base = await _baseUrl();
+    const { backendUrl, apiKey } = await _config();
+    const base = backendUrl.replace(/\/$/, "");
     const res = await fetch(`${base}/analyze-content`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
       body: JSON.stringify({ text }),
+      signal: AbortSignal.timeout(60000),
     });
     if (!res.ok) throw new Error(`Error del servidor: ${res.status}`);
     return res.json();
   },
 
   async testConnection() {
-    const base = await _baseUrl();
+    const { backendUrl } = await _config();
+    const base = backendUrl.replace(/\/$/, "");
     const res = await fetch(`${base}/health`, {
       signal: AbortSignal.timeout(5000),
     });

@@ -132,13 +132,14 @@
 
       <div class="content-input-section">
         <p class="content-input-hint">Pega el texto de un post, noticia o artículo para detectar si es contenido real o falso.</p>
+        <button class="btn-extract-page" id="extractPageBtn">📄 Usar página actual</button>
         <textarea
           class="content-textarea"
           id="contentTextarea"
           placeholder="Ej: «El gobierno confirma que las vacunas contienen microchips...»"
-          maxlength="4000"
+          maxlength="2000"
         ></textarea>
-        <div class="content-char-count"><span id="charCount">0</span> / 4000</div>
+        <div class="content-char-count" id="charCountWrap"><span id="charCount">0</span> / 2000</div>
         <button class="btn-analyze" id="analyzeContentBtn">Analizar contenido</button>
       </div>
 
@@ -164,6 +165,7 @@
           </div>
           <span class="content-pct" id="contentResultPct">—</span>
         </div>
+        <div class="content-uncertain hidden" id="contentUncertainBadge">⚠️ Resultado incierto — confianza baja</div>
       </div>
 
     </div>

@@ -1,4 +1,4 @@
-from urllib.parse import urlparse
+import tldextract
 
 
 class FeatureMapper:
@@ -6,7 +6,9 @@ class FeatureMapper:
     @staticmethod
     def map(url, url_features, html_analysis):
 
-        parsed = urlparse(url)
+        ext = tldextract.extract(url)
+        subdomain_str = ext.subdomain
+        num_subdomains = len(subdomain_str.split(".")) if subdomain_str else 0
 
         html_features = html_analysis.get(
             "html_features",
@@ -60,15 +62,9 @@ class FeatureMapper:
                 ),
 
             "TLDLength":
-                len(
-                    parsed.netloc.split(".")[-1]
-                ),
+                len(ext.suffix) if ext.suffix else 0,
 
-            "NoOfSubDomain":
-                max(
-                    0,
-                    len(parsed.netloc.split(".")) - 2
-                ),
+            "NoOfSubDomain": num_subdomains,
 
             "IsHTTPS":
                 int(

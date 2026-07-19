@@ -1,12 +1,16 @@
 from urllib.parse import urlparse
 import re
+import tldextract
 
 
 def extract_url_features(url: str):
 
     parsed = urlparse(url)
-
     hostname = parsed.hostname or ""
+
+    ext = tldextract.extract(url)
+    subdomain_str = ext.subdomain
+    num_subdomains = len(subdomain_str.split(".")) if subdomain_str else 0
 
     features = {
 
@@ -38,11 +42,7 @@ def extract_url_features(url: str):
         "contains_double_slash_redirect":
             "//" in parsed.path,
 
-        "num_subdomains":
-            max(
-                len(hostname.split(".")) - 2,
-                0
-            ),
+        "num_subdomains": num_subdomains,
 
         "full_url": url
     }

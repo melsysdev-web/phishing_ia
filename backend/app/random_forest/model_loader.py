@@ -1,15 +1,12 @@
 import joblib
-from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parents[3]
+from backend.app.core.paths import get_models_dir
 
-MODEL_PATH = BASE_DIR / "models" / "random_forest_v2.pkl"
+MODELS_DIR = get_models_dir()
 
-FEATURES_PATH = (
-    BASE_DIR
-    / "models"
-    / "feature_columns_v2.pkl"
-)
+MODEL_PATH = MODELS_DIR / "random_forest_v2.pkl"
+
+FEATURES_PATH = MODELS_DIR / "feature_columns_v2.pkl"
 
 model = joblib.load(MODEL_PATH)
 

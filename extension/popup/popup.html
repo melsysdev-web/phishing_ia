@@ -14,18 +14,12 @@
       <button class="btn-settings" id="settingsBtn" title="Configuración">⚙️</button>
     </header>
 
-    <!-- Input de URL -->
     <div class="url-section">
       <div class="input-wrap">
-        <input
-          type="url"
-          class="url-input"
-          id="urlInput"
+        <input type="url" class="url-input" id="urlInput"
           placeholder="Pega o escribe una URL…"
-          autocomplete="off"
-          spellcheck="false"
-        />
-        <button class="btn-paste hidden" id="pasteBtn" title="Pegar desde portapapeles"></button>
+          autocomplete="off" spellcheck="false" />
+        <button class="btn-paste hidden" id="pasteBtn" title="Pegar"></button>
       </div>
       <button class="btn-go" id="analyzeBtn">Analizar</button>
     </div>
@@ -48,23 +42,34 @@
     <!-- Resultado -->
     <div class="result hidden" id="result">
 
-      <!-- Rueda de puntuación -->
       <div class="gauge-wrap">
         <svg class="gauge-svg" viewBox="0 0 140 140" aria-hidden="true">
-          <!-- Pista -->
           <circle class="gauge-track" cx="70" cy="70" r="54"/>
-          <!-- Relleno animado (inicia desde arriba, -90°) -->
           <circle class="gauge-fill" id="gaugeFill"
             cx="70" cy="70" r="54"
             transform="rotate(-90 70 70)"/>
-          <!-- Número -->
           <text class="gauge-num" id="gaugeNum" x="70" y="67">0</text>
           <text class="gauge-den" x="70" y="86">/100</text>
         </svg>
-        <div class="gauge-verdict" id="gaugeVerdict">—</div>
-        <div class="gauge-hint"   id="gaugeHint">—</div>
+        <div class="verdict-badge" id="verdictBadge">—</div>
+        <div class="gauge-hint" id="gaugeHint">—</div>
       </div>
 
+      <div class="reasons-section">
+        <ul class="reasons-list" id="reasonsList"></ul>
+      </div>
+
+      <div class="signals-row" id="signalsRow"></div>
+
+    </div>
+
+    <!-- Historial -->
+    <div class="history-section hidden" id="historySection">
+      <div class="history-header">
+        <span class="history-title">Recientes</span>
+        <button class="btn-clear-history" id="clearHistoryBtn">Limpiar</button>
+      </div>
+      <ul class="history-list" id="historyList"></ul>
     </div>
 
   </div>
