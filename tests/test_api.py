@@ -54,7 +54,13 @@ def mock_safe_response():
         },
         "domain_info": {
             "domain": "google.com", "tld": "com", "domain_age_days": 10000
-        }
+        },
+        "cached": False,
+        "analysis_time_ms": 1200,
+        "virustotal": {"verdict": "clean"},
+        "safe_browsing": {"is_threat": False},
+        "fact_check": {"verdict": "reliable"},
+        "content_classification": None,
     }
 
 
@@ -96,7 +102,13 @@ def mock_phishing_response():
             "has_https": False, "url_length": 38,
             "has_ip": True, "contains_at_symbol": True
         },
-        "domain_info": {"domain": None, "tld": None, "domain_age_days": None}
+        "domain_info": {"domain": None, "tld": None, "domain_age_days": None},
+        "cached": False,
+        "analysis_time_ms": 900,
+        "virustotal": {"verdict": "malicious", "stats": {"malicious": 12}},
+        "safe_browsing": {"is_threat": True, "verdict": "dangerous"},
+        "fact_check": {"error": "not found"},
+        "content_classification": None,
     }
 
 

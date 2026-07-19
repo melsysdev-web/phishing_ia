@@ -12,6 +12,13 @@ from starlette.requests import Request
 
 from backend.app.api.routes import router
 from backend.app.core.config import settings
+from backend.app.core.paths import get_models_dir
+from backend.app.utils import url_cache
+from backend.app.schemas.response_schema import (
+    HealthResponse,
+    RootResponse,
+    MetadataResponse,
+)
 
 logger = logging.getLogger("phishing_api")
 
@@ -69,7 +76,15 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
 
 # ── App ──────────────────────────────────────────────────────────────────────
-app = FastAPI(title="AI Phishing Detector", version="1.0.0")
+app = FastAPI(
+    title="AI Phishing Detector",
+    version="1.0.0",
+    openapi_tags=[
+        {"name": "Sistema", "description": "Liveness y sanity checks, sin autenticación."},
+        {"name": "Análisis", "description": "Pipeline de detección de phishing y clasificación de contenido."},
+        {"name": "Cache", "description": "Inspección y limpieza del cache en memoria."},
+    ],
+)
 
 # ── CORS ─────────────────────────────────────────────────────────────────────
 # Permite: extensiones Chrome (cualquier ID), localhost y 127.0.0.1,
@@ -92,11 +107,45 @@ app.add_middleware(RequestLoggingMiddleware)
 app.include_router(router)
 
 
-@app.get("/")
+# ── Manejo controlado de errores no previstos ────────────────────────────────
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception("Error no controlado en %s %s", request.method, request.url.path)
+    detail = str(exc) if settings.environment != "production" else None
+    return JSONResponse(
+        {"error": "Error interno del servidor", "detail": detail},
+        status_code=500,
+    )
+
+
+@app.get("/", response_model=RootResponse, tags=["Sistema"], summary="Sanity check")
 def root():
     return {"message": "AI Phishing Detector Running"}
 
 
-@app.get("/health")
+@app.get("/health", response_model=HealthResponse, tags=["Sistema"], summary="Liveness check")
 def health():
     return {"status": "healthy"}
+
+
+@app.get(
+    "/metadata",
+    response_model=MetadataResponse,
+    tags=["Sistema"],
+    summary="Version, modelos disponibles y configuración activa",
+)
+def metadata():
+    models_dir = get_models_dir()
+    cache_info = url_cache.stats()
+    return {
+        "api_version": app.version,
+        "models": {
+            "random_forest": (models_dir / "random_forest_v2.pkl").exists()
+            and (models_dir / "feature_columns_v2.pkl").exists(),
+            "roberta_url": (models_dir / "roberta_phishing_new").exists(),
+            "roberta_content": (models_dir / "roberta_content" / "config.json").exists(),
+        },
+        "rate_limit_per_minute": _RATE_MAX,
+        "cache_ttl_seconds": cache_info["ttl_seconds"],
+        "cache_max_size": cache_info["max_size"],
+    }

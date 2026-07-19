@@ -57,6 +57,16 @@ sys.modules['backend.app.roberta.model_loader'] = _mock_roberta_loader
 # Shared fixtures
 # ─────────────────────────────────────────────
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """RateLimitMiddleware keys its counter by IP only (not by path), so
+    every test hitting /predict or /analyze-content shares one global
+    bucket. Reset it before each test to keep tests order-independent."""
+    import backend.app.main as main_module
+    main_module._rate_store.clear()
+    yield
+
+
 @pytest.fixture
 def safe_url():
     return "https://www.google.com"

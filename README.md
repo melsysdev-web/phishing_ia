@@ -111,10 +111,32 @@ El servidor queda disponible en `http://localhost:8000`.
 **Endpoints:**
 | Método | Ruta | Descripción |
 |---|---|---|
+| `GET` | `/health` | Liveness check |
+| `GET` | `/metadata` | Versión de la API, modelos ML disponibles y configuración activa |
 | `POST` | `/predict` | Análisis completo de una URL |
 | `POST` | `/analyze-content` | Clasificación de texto libre (REAL/FAKE) |
 | `GET` | `/cache/stats` | Estadísticas del cache en memoria |
 | `DELETE` | `/cache` | Limpiar cache |
+
+Contrato completo, ejemplos de curl y códigos de error: [`docs/api.md`](docs/api.md).
+
+---
+
+## Probar la API sin escribir código
+
+Con el backend corriendo, abrir **`http://localhost:8000/docs`** (Swagger UI, generado automáticamente por FastAPI): cada endpoint tiene un botón **Try it out** para ejecutar requests reales desde el navegador, sin curl ni Postman.
+
+Para Postman: **Import → Link** → `http://localhost:8000/openapi.json` importa los 7 endpoints con sus schemas.
+
+Ejemplo con curl:
+```bash
+curl -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: <tu_api_key>" \
+  -d '{"url": "https://ejemplo.com"}'
+```
+
+Si `API_KEY` está vacío en `.env` (default en local), el header `X-API-Key` no es necesario.
 
 ---
 
@@ -192,6 +214,7 @@ venv\Scripts\python -m backend.app.random_forest.test_predict
 
 | Documento | Descripción |
 |---|---|
+| [`docs/api.md`](docs/api.md) | Contrato de la API: endpoints, request/response, ejemplos curl, códigos de error |
 | [`docs/architecture.md`](docs/architecture.md) | Arquitectura completa, pipeline, módulos |
 | [`docs/decision_tree.md`](docs/decision_tree.md) | Lógica de puntuación del RiskEngine |
 | [`docs/mvp_scope.md`](docs/mvp_scope.md) | Alcance e implementación del proyecto |
