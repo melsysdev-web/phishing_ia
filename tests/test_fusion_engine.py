@@ -1,6 +1,4 @@
-import pytest
 from backend.app.ml.fusion.fusion_engine import FusionEngine
-
 
 # ── Normal combination ────────────────────────────────────────────────
 

@@ -6,8 +6,8 @@ import sys
 from unittest.mock import MagicMock
 
 import numpy as np
-import torch
 import pytest
+import torch
 
 # ─────────────────────────────────────────────
 # Mock: Random Forest model loader

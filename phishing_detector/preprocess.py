@@ -4,7 +4,6 @@ import struct
 import urllib.parse
 from typing import Optional
 
-
 # ── Normalización de URLs ─────────────────────────────────────────────────────
 
 def _expand_ip_literal(host: str) -> str:

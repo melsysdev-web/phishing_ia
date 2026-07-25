@@ -1,20 +1,18 @@
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from backend.app.utils.url_features import extract_url_features
-from backend.app.utils.domain_utils import get_domain_info
-from backend.app.utils.feature_mapper import FeatureMapper
-from backend.app.utils import url_cache
-
-from backend.app.services.risk_engine import RiskEngine
-from backend.app.services.virustotal_service import VirusTotalService
-from backend.app.services.safe_browsing_service import SafeBrowsingService
-from backend.app.services.fact_check_service import FactCheckService
-
+from backend.app.analyzers.html_analyzer import HtmlAnalyzer
+from backend.app.ml.fusion.fusion_engine import FusionEngine
 from backend.app.random_forest.predictor import RandomForestPredictor
 from backend.app.roberta.predictor import RobertaPredictor
-from backend.app.ml.fusion.fusion_engine import FusionEngine
-from backend.app.analyzers.html_analyzer import HtmlAnalyzer
+from backend.app.services.fact_check_service import FactCheckService
+from backend.app.services.risk_engine import RiskEngine
+from backend.app.services.safe_browsing_service import SafeBrowsingService
+from backend.app.services.virustotal_service import VirusTotalService
+from backend.app.utils import url_cache
+from backend.app.utils.domain_utils import get_domain_info
+from backend.app.utils.feature_mapper import FeatureMapper
+from backend.app.utils.url_features import extract_url_features
 
 
 def _safe(fn, *args):

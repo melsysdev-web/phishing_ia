@@ -1,12 +1,7 @@
 from bs4 import BeautifulSoup
 
-from backend.app.analyzers.html_fetcher import (
-    HtmlFetcher
-)
-
-from backend.app.analyzers.html_features import (
-    HtmlFeatures
-)
+from backend.app.analyzers.html_features import HtmlFeatures
+from backend.app.analyzers.html_fetcher import HtmlFetcher
 
 
 def _extract_page_text(html: str) -> str:

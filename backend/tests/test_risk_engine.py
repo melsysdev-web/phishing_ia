@@ -1,6 +1,4 @@
-import pytest
 from backend.app.services.risk_engine import RiskEngine
-
 
 _SAFE_FEATS = {
     "full_url": "https://www.google.com/",
@@ -118,6 +116,18 @@ class TestRiskEngineUrlSignals:
 
 class TestRiskEngineDomainSignals:
 
+    def test_domain_under_30_days_reason_text(self):
+        result = RiskEngine.calculate(_SAFE_FEATS, {"domain_age_days": 10, "tld": "com"})
+        assert any("30 días" in r for r in result["reasons"])
+
+    def test_domain_under_180_days_reason_text(self):
+        result = RiskEngine.calculate(_SAFE_FEATS, {"domain_age_days": 90, "tld": "com"})
+        assert any("nuevo" in r for r in result["reasons"])
+
+    def test_none_domain_age_does_not_crash(self):
+        result = RiskEngine.calculate(_SAFE_FEATS, {"domain_age_days": None, "tld": "com"})
+        assert "risk" in result
+
     def test_new_domain_reduces_score(self):
         old = RiskEngine.calculate(_SAFE_FEATS, _OLD_DOMAIN)
         new = RiskEngine.calculate(_SAFE_FEATS, _NEW_DOMAIN)
@@ -142,6 +152,60 @@ class TestRiskEngineDomainSignals:
         com = RiskEngine.calculate(_SAFE_FEATS, {"domain_age_days": 365, "tld": "com"})
         xyz = RiskEngine.calculate(_SAFE_FEATS, {"domain_age_days": 365, "tld": "xyz"})
         assert com["score"] > xyz["score"]
+
+
+class TestRiskEngineHtmlSignals:
+
+    def test_password_field_reduces_score(self):
+        without_html = RiskEngine.calculate(_SAFE_FEATS, _EMPTY_DOMAIN)
+        with_html = RiskEngine.calculate(
+            _SAFE_FEATS,
+            _EMPTY_DOMAIN,
+            html_analysis={
+                "success": True,
+                "html_features": {"HasPasswordField": 1, "HasTitle": 1},
+            },
+        )
+        assert with_html["score"] < without_html["score"]
+        assert any("contraseña" in r for r in with_html["reasons"])
+
+    def test_failed_html_analysis_is_skipped(self):
+        result = RiskEngine.calculate(
+            _SAFE_FEATS, _EMPTY_DOMAIN,
+            html_analysis={"success": False, "error": "timeout"},
+        )
+        assert "risk" in result
+
+
+class TestRiskEngineReasonText:
+
+    def test_https_reason_present(self):
+        result = RiskEngine.calculate(_SAFE_FEATS, _EMPTY_DOMAIN)
+        assert "HTTPS válido" in result["reasons"]
+
+    def test_no_https_reason_present(self):
+        feats = {**_SAFE_FEATS, "has_https": False, "full_url": "http://www.google.com/"}
+        result = RiskEngine.calculate(feats, _EMPTY_DOMAIN)
+        assert "No utiliza HTTPS" in result["reasons"]
+
+    def test_ip_reason_present(self):
+        result = RiskEngine.calculate(_PHISHING_FEATS, _EMPTY_DOMAIN)
+        assert any("IP" in r for r in result["reasons"])
+
+    def test_at_symbol_reason_present(self):
+        feats = {
+            **_SAFE_FEATS,
+            "full_url": "https://legit.com@evil.com/",
+            "contains_at_symbol": True,
+        }
+        result = RiskEngine.calculate(feats, _EMPTY_DOMAIN)
+        assert any("@" in r for r in result["reasons"])
+
+    def test_excessive_subdomains_reason_present(self):
+        result = RiskEngine.calculate(
+            {**_SAFE_FEATS, "num_subdomains": 4}, _EMPTY_DOMAIN
+        )
+        assert any("subdominio" in r for r in result["reasons"])
 
 
 class TestRiskEngineExternalServices:
@@ -215,6 +279,17 @@ class TestRiskEngineExternalServices:
         base = RiskEngine.calculate(_SAFE_FEATS, _EMPTY_DOMAIN)
         with_fc = RiskEngine.calculate(_SAFE_FEATS, _EMPTY_DOMAIN, fc_result=fc)
         assert with_fc["score"] >= base["score"]
+
+    def test_ml_error_dict_is_ignored(self):
+        base = RiskEngine.calculate(_SAFE_FEATS, _EMPTY_DOMAIN)
+        with_error = RiskEngine.calculate(
+            _SAFE_FEATS, _EMPTY_DOMAIN, ml_result={"error": "model error"}
+        )
+        assert with_error["score"] == base["score"]
+
+    def test_ml_none_is_ignored(self):
+        result = RiskEngine.calculate(_SAFE_FEATS, _EMPTY_DOMAIN, ml_result=None)
+        assert result is not None
 
 
 class TestRiskEngineScoreThresholds:

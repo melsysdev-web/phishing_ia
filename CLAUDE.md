@@ -16,9 +16,14 @@ venv\Scripts\uvicorn backend.app.main:app --reload
 ```
 Serves at `http://localhost:8000`.
 
-**Run the full test suite** (`pytest.ini` sets `testpaths = tests backend/tests`):
+**Run the full test suite** (`pyproject.toml`'s `[tool.pytest.ini_options]` sets `testpaths = ["tests", "backend/tests"]`):
 ```powershell
 venv\Scripts\python -m pytest
+```
+
+**Lint** (`pyproject.toml`'s `[tool.ruff]`/`[tool.ruff.lint]`: line-length 100, py312, rules `E,F,I,B`; `scripts/generate_*.py` are exempted from `E501` since their long lines are narrative report/diagram content, not logic):
+```powershell
+venv\Scripts\python -m ruff check .
 ```
 
 **Run a single test file:**
@@ -26,7 +31,7 @@ venv\Scripts\python -m pytest
 venv\Scripts\python -m pytest backend/tests/test_risk_engine.py -v
 ```
 
-`tests/conftest.py` patches `backend.app.random_forest.model_loader` and `backend.app.roberta.model_loader` in `sys.modules` **before** any backend code is imported, so the full test suite runs without real `.pkl`/HF model files present. Tests importing `backend.app.main` (e.g. `tests/test_content_api.py`) get this for free as long as conftest loads first (default pytest behavior).
+`tests/conftest.py` patches `backend.app.random_forest.model_loader` and `backend.app.roberta.model_loader` in `sys.modules` **before** any backend code is imported, so the full test suite runs without real `.pkl`/HF model files present. Tests importing `backend.app.main` (e.g. `tests/test_content_api.py`) get this for free as long as conftest loads first (default pytest behavior). It also defines an `autouse` fixture that clears `RateLimitMiddleware`'s `_rate_store` before every test — the limiter buckets by IP only (not by path), so without the reset, tests hitting `/predict`/`/analyze-content` in sequence would trip 429s from earlier tests.
 
 **Quick model smoke test (Random Forest):**
 ```powershell
@@ -38,7 +43,7 @@ venv\Scripts\python -m backend.app.random_forest.test_predict
 venv\Scripts\python training/train_random_forest.py
 ```
 
-**Train RoBERTa URL classifier** (requires `datasets/roberta_dataset.csv`, saves to `models/roberta_phishing`):
+**Train RoBERTa URL classifier** (requires `datasets/roberta_dataset.csv`, saves to `models/roberta_phishing_new`):
 ```powershell
 venv\Scripts\python backend/app/roberta/trainer.py
 ```
@@ -58,7 +63,7 @@ venv\Scripts\python backend/app/roberta/content_trainer_es.py
 venv\Scripts\python scripts\run_training.py datasets\mi_dataset.csv
 ```
 
-`models/` and `datasets/raw/` are not versioned. Without `random_forest_v2.pkl` or `roberta_phishing/`, those signals fail in a controlled way (`_safe()` in `phishing_service.py` returns `{"error": ...}` instead of crashing the pipeline). Without `models/roberta_content/`, `ContentClassifierService` falls back to the HuggingFace hub model `hamzab/roberta-fake-news-classification`.
+`models/` is not versioned (`.gitignore`); `datasets/raw/phishing_urls.csv` is versioned. Without `random_forest_v2.pkl` or `roberta_phishing_new/`, those signals fail in a controlled way (`_safe()` in `phishing_service.py` returns `{"error": ...}` instead of crashing the pipeline). Without `models/roberta_content/`, `ContentClassifierService` falls back to the HuggingFace hub model `hamzab/roberta-fake-news-classification`.
 
 ## Architecture
 
@@ -78,14 +83,16 @@ Results are cached in-memory (TTL 10 min, max 500 entries) keyed by URL.
 
 - `config.py` loads `.env` into a `settings` singleton: `virustotal_api_key`, `safe_browsing_api_key`, `fact_check_api_key`, `api_key` (backend auth, empty = disabled), `allowed_origins` (comma-separated extra CORS origins).
 - `security.py` — `require_api_key` is a FastAPI dependency applied to the whole router in `routes.py` (`APIRouter(dependencies=[Depends(require_api_key)])`). It reads the `X-API-Key` header; if `settings.api_key` is empty the check is a no-op (auth disabled), otherwise the header must match exactly or it 403s.
-- `main.py` also registers a custom `RateLimitMiddleware`: 30 requests/60s per client IP, scoped to `/predict` and `/analyze-content` only, returns 429 with `Retry-After: 60` when exceeded.
+- `settings.environment` (`ENVIRONMENT` env var, default `development`) — if set to `production` with no `API_KEY` configured, `main.py` raises `RuntimeError` at startup instead of booting an unauthenticated backend.
+- `main.py` also registers a custom `RateLimitMiddleware`: 30 requests/60s per client IP, scoped to `/predict` and `/analyze-content` only, returns 429 with `Retry-After: 60` when exceeded (keyed by IP only, not by path — the two endpoints share one bucket). It also registers `RequestLoggingMiddleware`, which logs method/path/status/latency/IP for every request.
 - CORS (`main.py`) uses `allow_origin_regex` (not a static list) to accept any `chrome-extension://` origin plus `localhost`/`127.0.0.1`, extended with `settings.allowed_origins` if set.
+- A global `@app.exception_handler(Exception)` in `main.py` catches unhandled errors, logs the traceback, and returns a 500 with `{"error": ..., "detail": ...}` — `detail` is omitted when `settings.environment == "production"` to avoid leaking internals.
 
 ### ML models (`models/`)
 
 | File | Used by |
 |---|---|
-| `random_forest_v2.pkl` | `RandomForestPredictor` — predicts phishing from 18 URL/HTML features |
+| `random_forest_v2.pkl` | `RandomForestPredictor` — predicts phishing from 34 URL/HTML features |
 | `feature_columns_v2.pkl` | column order for the RF model |
 | `roberta_phishing_new/` | `RobertaPredictor` — fine-tuned `distilroberta-base` on URL strings |
 | `roberta_content/` | `ContentClassifierService` — FAKE/REAL news classifier (falls back to `hamzab/roberta-fake-news-classification` if dir missing) |
@@ -109,10 +116,11 @@ All three loaders resolve this directory via `get_models_dir()` in `backend/app/
 | `POST` | `/analyze-content` | Raw text only → `ContentClassifierService` (REAL/FAKE); texts under 300 chars return a `no_content`/`UNKNOWN` verdict rather than being classified |
 | `GET` | `/health` | Liveness check used by the extension's connection test |
 | `GET` | `/` | Root sanity check |
+| `GET` | `/metadata` | API version, which ML model files are present on disk, and active rate-limit/cache config |
 | `GET` | `/cache/stats` | Cache hit/miss stats and entry count |
 | `DELETE` | `/cache` | Evict all cached results |
 
-The whole router (including `/predict`, `/analyze-content`, and the cache endpoints) sits behind `require_api_key`; only `/` and `/health` (defined directly on `app` in `main.py`) are unauthenticated.
+The whole router (including `/predict`, `/analyze-content`, and the cache endpoints) sits behind `require_api_key`; only `/`, `/health`, and `/metadata` (defined directly on `app` in `main.py`) are unauthenticated. Every endpoint has a typed Pydantic `response_model` from `backend/app/schemas/response_schema.py` for the OpenAPI/Swagger contract. Full request/response contract with curl examples: `docs/api.md`.
 
 ### Chrome extension (`extension/`)
 
@@ -143,7 +151,7 @@ Independent from `backend/app/roberta/` — built around a custom classifier hea
 ```
 backend/app/
   api/routes.py          # FastAPI router (behind require_api_key), 2 analysis endpoints + cache ops
-  main.py                # App entry, CORS, RateLimitMiddleware
+  main.py                # App entry, CORS, RateLimitMiddleware, RequestLoggingMiddleware, global exception handler, /, /health, /metadata
   core/
     config.py            # Loads .env into a settings singleton (API keys, backend api_key, allowed_origins)
     security.py          # require_api_key dependency (X-API-Key header check)
@@ -165,6 +173,7 @@ backend/app/
     url_cache.py          # Thread-safe in-memory TTL cache
   schemas/
     request_schema.py     # UrlRequest (validates http/https prefix), TextRequest
+    response_schema.py     # response_model for every endpoint (OpenAPI contract), incl. MetadataResponse, ErrorResponse
     ml_response.py         # MLPredictionResponse pydantic model
 
 backend/tests/            # Unit tests (url_features, html_features, feature_mapper, risk_engine, html_analyzer, content_classifier)
@@ -188,7 +197,7 @@ scripts/
   test_phishing_url.py         # ad-hoc single-URL check against phishing_detector/
   augment_roberta_dataset.py    # dataset augmentation for the RoBERTa URL trainer
 
-docs/                      # architecture.md, decision_tree.md, mvp_scope.md, testing_report.md, user_stories.md, changelog.md, presentacion.md
+docs/                      # api.md, architecture.md, decision_tree.md, mvp_scope.md, testing_report.md, user_stories.md, changelog.md, presentacion.md
 ```
 
 ## Key conventions
@@ -199,7 +208,7 @@ docs/                      # architecture.md, decision_tree.md, mvp_scope.md, te
 - `ContentClassifierService` is lazy-loaded (via `@lru_cache`) on first call; uses local model dir if `models/roberta_content/config.json` exists, else HuggingFace hub. Inputs under 300 characters short-circuit to a `no_content`/`UNKNOWN`/`0.0` result rather than being run through the model.
 - Label normalization in `ContentClassifierService`: remote model returns `TRUE/FALSE`, local returns `REAL/FAKE` — both are normalized to `REAL/FAKE`.
 - The Random Forest expects exactly the columns in `feature_columns_v2.pkl`; `FeatureMapper.map` must produce those keys (missing ones default to 0).
-- When adding new backend tests, put them under `backend/tests/` (not a new top-level dir) so `pytest.ini`'s `testpaths` and the shared `conftest.py` model mocks pick them up automatically.
+- When adding new backend tests, put them under `backend/tests/` (not a new top-level dir) so `pyproject.toml`'s `testpaths` and the shared `conftest.py` model mocks pick them up automatically.
 
 ## Deployment
 
@@ -210,3 +219,11 @@ The backend is deployable independently of the rest of the repo (extension, trai
 - `docker-compose.yml` (repo root) — local way to build/run the image with `./models` bind-mounted read-only and `.env` loaded. `docker compose up backend`, then `curl http://localhost:8000/health`.
 - `.env.example` — template for `.env` (never commit real keys); `.dockerignore` keeps the build context to just what the backend needs.
 - `models/` is not versioned and is large (GBs) — don't `COPY` it into the image on any platform; always mount/fetch it separately at deploy time.
+
+## CI (`.github/workflows/ci.yml`)
+
+Runs on push/PR to `main`: checkout → Python 3.12 → `pip install -r requirements-dev.txt --extra-index-url https://download.pytorch.org/whl/cpu` → `ruff check .` → `pytest -v`.
+
+- `requirements-dev.txt` = `backend/requirements.txt` (CPU torch) + pinned `pytest`/`ruff` — deliberately *not* the root `requirements.txt`, which pins `torch==...+cu128` and would fail to resolve on a GPU-less GitHub Actions runner.
+- The `--extra-index-url` flag is required for the `+cpu` torch wheel to resolve; without it, `pip install` fails with "No matching distribution found".
+- No model files or `.env` secrets are needed for CI — `tests/conftest.py` mocks the RF/RoBERTa loaders before import, so the whole suite runs against the same mocks used locally.

@@ -1,17 +1,17 @@
 from fastapi import APIRouter, Depends
 
-from backend.app.schemas.request_schema import UrlRequest, TextRequest
-from backend.app.schemas.response_schema import (
-    PredictResponse,
-    ContentAnalysisResponse,
-    CacheStatsResponse,
-    CacheClearResponse,
-    ErrorResponse,
-)
-from backend.app.services.phishing_service import PhishingService
-from backend.app.services.content_classifier_service import ContentClassifierService
-from backend.app.utils import url_cache
 from backend.app.core.security import require_api_key
+from backend.app.schemas.request_schema import TextRequest, UrlRequest
+from backend.app.schemas.response_schema import (
+    CacheClearResponse,
+    CacheStatsResponse,
+    ContentAnalysisResponse,
+    ErrorResponse,
+    PredictResponse,
+)
+from backend.app.services.content_classifier_service import ContentClassifierService
+from backend.app.services.phishing_service import PhishingService
+from backend.app.utils import url_cache
 
 router = APIRouter(dependencies=[Depends(require_api_key)])
 

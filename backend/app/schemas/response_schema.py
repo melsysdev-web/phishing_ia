@@ -1,4 +1,5 @@
 from typing import Any, Optional
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -67,3 +68,8 @@ class MetadataResponse(BaseModel):
 class ErrorResponse(BaseModel):
     error: str
     detail: Optional[str] = None
+
+
+class DobleResponse(BaseModel):
+    numero: int
+    doble: int

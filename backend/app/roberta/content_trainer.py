@@ -1,20 +1,14 @@
 import numpy as np
+from sklearn.metrics import accuracy_score, confusion_matrix, precision_recall_fscore_support
+from transformers import (
+    AutoModelForSequenceClassification,
+    AutoTokenizer,
+    EarlyStoppingCallback,
+    Trainer,
+    TrainingArguments,
+)
 
 from datasets import load_dataset
-
-from transformers import (
-    AutoTokenizer,
-    AutoModelForSequenceClassification,
-    TrainingArguments,
-    Trainer,
-    EarlyStoppingCallback
-)
-
-from sklearn.metrics import (
-    accuracy_score,
-    precision_recall_fscore_support,
-    confusion_matrix
-)
 
 # ──────────────────────────────────────────────
 # Config
@@ -48,7 +42,7 @@ def clean(batch):
     texts  = batch.get("text")  or [""] * len(batch["label"])
 
     combined = []
-    for title, text in zip(titles, texts):
+    for title, text in zip(titles, texts, strict=True):
         title = (title or "").strip()
         text  = (text  or "").strip()[:1000]
         combined.append(f"{title}. {text}" if title else text)

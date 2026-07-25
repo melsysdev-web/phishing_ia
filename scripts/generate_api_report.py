@@ -5,12 +5,13 @@ Salida: docs/informe_api_endpoints.docx
 """
 
 import os
+
 from docx import Document
-from docx.shared import Pt, RGBColor, Cm
-from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.oxml.ns import qn
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+from docx.shared import Cm, Pt, RGBColor
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 

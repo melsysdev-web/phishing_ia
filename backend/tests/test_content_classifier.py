@@ -2,8 +2,7 @@
 Unit tests for ContentClassifierService.
 The transformers pipeline is mocked so no model is loaded.
 """
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from backend.app.services.content_classifier_service import ContentClassifierService
 

@@ -1,6 +1,4 @@
-import pytest
 from backend.app.analyzers.html_features import HtmlFeatures
-
 
 MINIMAL_HTML = "<html><body><p>Hello</p></body></html>"
 

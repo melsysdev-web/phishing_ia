@@ -1,7 +1,7 @@
-import re
-import time
 import logging
+import re
 import threading
+import time
 from collections import defaultdict
 
 from fastapi import FastAPI
@@ -13,12 +13,13 @@ from starlette.requests import Request
 from backend.app.api.routes import router
 from backend.app.core.config import settings
 from backend.app.core.paths import get_models_dir
-from backend.app.utils import url_cache
 from backend.app.schemas.response_schema import (
+    DobleResponse,
     HealthResponse,
-    RootResponse,
     MetadataResponse,
+    RootResponse,
 )
+from backend.app.utils import url_cache
 
 logger = logging.getLogger("phishing_api")
 
@@ -81,8 +82,18 @@ app = FastAPI(
     version="1.0.0",
     openapi_tags=[
         {"name": "Sistema", "description": "Liveness y sanity checks, sin autenticación."},
-        {"name": "Análisis", "description": "Pipeline de detección de phishing y clasificación de contenido."},
+        {
+            "name": "Análisis",
+            "description": "Pipeline de detección de phishing y clasificación de contenido.",
+        },
         {"name": "Cache", "description": "Inspección y limpieza del cache en memoria."},
+        {
+            "name": "Debug",
+            "description": (
+                "Endpoints de prueba sin relación con el producto — "
+                "no forman parte del contrato de la API."
+            ),
+        },
     ],
 )
 
@@ -149,3 +160,17 @@ def metadata():
         "cache_ttl_seconds": cache_info["ttl_seconds"],
         "cache_max_size": cache_info["max_size"],
     }
+
+
+@app.get(
+    "/doble/{numero}",
+    response_model=DobleResponse,
+    tags=["Debug"],
+    summary="Duplicar un número (endpoint de prueba)",
+    description=(
+        "Sin relación con el pipeline de phishing — solo para verificar "
+        "que el routing y la validación de parámetros funcionan."
+    ),
+)
+def doble(numero: int):
+    return {"numero": numero, "doble": numero * 2}

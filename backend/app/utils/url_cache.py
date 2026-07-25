@@ -1,5 +1,5 @@
-import time
 import threading
+import time
 
 _TTL = 600       # segundos (10 minutos)
 _MAX_SIZE = 500  # URLs máximas en caché

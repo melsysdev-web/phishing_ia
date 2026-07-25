@@ -1,6 +1,4 @@
-import pytest
 from backend.app.utils.feature_mapper import FeatureMapper
-
 
 _BASE_URL_FEATURES = {
     "url_length": 28,

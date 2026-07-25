@@ -1,10 +1,8 @@
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-import pytest
 import requests
 
 from backend.app.services.safe_browsing_service import SafeBrowsingService
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -16,9 +14,15 @@ def _mock_post(status_code=200, json_body=None):
 
 
 _CLEAN_RESPONSE       = {}
-_MALWARE_RESPONSE     = {"matches": [{"threatType": "MALWARE",             "platformType": "ANY_PLATFORM", "cacheDuration": "300s"}]}
-_PHISHING_RESPONSE    = {"matches": [{"threatType": "SOCIAL_ENGINEERING",  "platformType": "ANY_PLATFORM", "cacheDuration": "300s"}]}
-_UNWANTED_RESPONSE    = {"matches": [{"threatType": "UNWANTED_SOFTWARE",   "platformType": "ANY_PLATFORM", "cacheDuration": "300s"}]}
+_MALWARE_RESPONSE     = {"matches": [
+    {"threatType": "MALWARE", "platformType": "ANY_PLATFORM", "cacheDuration": "300s"}
+]}
+_PHISHING_RESPONSE    = {"matches": [
+    {"threatType": "SOCIAL_ENGINEERING", "platformType": "ANY_PLATFORM", "cacheDuration": "300s"}
+]}
+_UNWANTED_RESPONSE    = {"matches": [
+    {"threatType": "UNWANTED_SOFTWARE", "platformType": "ANY_PLATFORM", "cacheDuration": "300s"}
+]}
 _MULTI_THREAT         = {"matches": [
     {"threatType": "MALWARE",           "platformType": "ANY_PLATFORM", "cacheDuration": "300s"},
     {"threatType": "SOCIAL_ENGINEERING","platformType": "ANY_PLATFORM", "cacheDuration": "300s"},
@@ -212,7 +216,10 @@ def test_risk_engine_penalizes_virustotal_malicious():
         vt_result={
             "verdict": "malicious",
             "is_malicious": True,
-            "stats": {"malicious": 7, "suspicious": 1, "harmless": 60, "undetected": 10, "total_engines": 78}
+            "stats": {
+                "malicious": 7, "suspicious": 1, "harmless": 60,
+                "undetected": 10, "total_engines": 78,
+            }
         }
     )
 
@@ -237,7 +244,10 @@ def test_risk_engine_rewards_clean_virustotal():
         vt_result={
             "verdict": "clean",
             "is_malicious": False,
-            "stats": {"malicious": 0, "suspicious": 0, "harmless": 78, "undetected": 11, "total_engines": 89}
+            "stats": {
+                "malicious": 0, "suspicious": 0, "harmless": 78,
+                "undetected": 11, "total_engines": 89,
+            }
         }
     )
 

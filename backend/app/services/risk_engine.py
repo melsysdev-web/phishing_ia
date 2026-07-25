@@ -1,4 +1,5 @@
 from urllib.parse import urlparse
+
 import tldextract
 
 # ── Listas de referencia ──────────────────────────────────────────────────────

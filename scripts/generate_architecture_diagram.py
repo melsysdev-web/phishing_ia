@@ -4,10 +4,12 @@ Salida: docs/architecture_diagram.png
 """
 
 import os
+
 import matplotlib
+
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch
 
 # ── Paleta ────────────────────────────────────────────────────────────────────
