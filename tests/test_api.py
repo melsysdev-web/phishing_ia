@@ -143,7 +143,7 @@ def test_doble_returns_200():
 
 def test_doble_calcula_resultado():
     response = client.get("/doble/7")
-    assert response.json() == {"numero": 7, "doble": 15}
+    assert response.json() == {"numero": 7, "doble": 14}
 
 
 def test_doble_rechaza_texto():
