@@ -26,8 +26,7 @@ _mock_rf_model.predict.return_value = np.array([1])
 _mock_rf_model.predict_proba.return_value = np.array([[0.15, 0.85]])
 
 _mock_rf_loader = MagicMock()
-_mock_rf_loader.model = _mock_rf_model
-_mock_rf_loader.feature_columns = FEATURE_COLUMNS
+_mock_rf_loader.get_model.return_value = (_mock_rf_model, FEATURE_COLUMNS)
 sys.modules['backend.app.random_forest.model_loader'] = _mock_rf_loader
 
 # ─────────────────────────────────────────────
