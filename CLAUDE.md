@@ -16,9 +16,14 @@ venv\Scripts\uvicorn backend.app.main:app --reload
 ```
 Serves at `http://localhost:8000`.
 
-**Run the full test suite** (`pytest.ini` sets `testpaths = tests backend/tests`):
+**Run the full test suite** (`pyproject.toml`'s `[tool.pytest.ini_options]` sets `testpaths = ["tests", "backend/tests"]`):
 ```powershell
 venv\Scripts\python -m pytest
+```
+
+**Lint** (`pyproject.toml`'s `[tool.ruff]`/`[tool.ruff.lint]`: line-length 100, py312, rules `E,F,I,B`; `scripts/generate_*.py` are exempted from `E501` since their long lines are narrative report/diagram content, not logic):
+```powershell
+venv\Scripts\python -m ruff check .
 ```
 
 **Run a single test file:**
@@ -203,7 +208,7 @@ docs/                      # api.md, architecture.md, decision_tree.md, mvp_scop
 - `ContentClassifierService` is lazy-loaded (via `@lru_cache`) on first call; uses local model dir if `models/roberta_content/config.json` exists, else HuggingFace hub. Inputs under 300 characters short-circuit to a `no_content`/`UNKNOWN`/`0.0` result rather than being run through the model.
 - Label normalization in `ContentClassifierService`: remote model returns `TRUE/FALSE`, local returns `REAL/FAKE` — both are normalized to `REAL/FAKE`.
 - The Random Forest expects exactly the columns in `feature_columns_v2.pkl`; `FeatureMapper.map` must produce those keys (missing ones default to 0).
-- When adding new backend tests, put them under `backend/tests/` (not a new top-level dir) so `pytest.ini`'s `testpaths` and the shared `conftest.py` model mocks pick them up automatically.
+- When adding new backend tests, put them under `backend/tests/` (not a new top-level dir) so `pyproject.toml`'s `testpaths` and the shared `conftest.py` model mocks pick them up automatically.
 
 ## Deployment
 
@@ -214,3 +219,11 @@ The backend is deployable independently of the rest of the repo (extension, trai
 - `docker-compose.yml` (repo root) — local way to build/run the image with `./models` bind-mounted read-only and `.env` loaded. `docker compose up backend`, then `curl http://localhost:8000/health`.
 - `.env.example` — template for `.env` (never commit real keys); `.dockerignore` keeps the build context to just what the backend needs.
 - `models/` is not versioned and is large (GBs) — don't `COPY` it into the image on any platform; always mount/fetch it separately at deploy time.
+
+## CI (`.github/workflows/ci.yml`)
+
+Runs on push/PR to `main`: checkout → Python 3.12 → `pip install -r requirements-dev.txt --extra-index-url https://download.pytorch.org/whl/cpu` → `ruff check .` → `pytest -v`.
+
+- `requirements-dev.txt` = `backend/requirements.txt` (CPU torch) + pinned `pytest`/`ruff` — deliberately *not* the root `requirements.txt`, which pins `torch==...+cu128` and would fail to resolve on a GPU-less GitHub Actions runner.
+- The `--extra-index-url` flag is required for the `+cpu` torch wheel to resolve; without it, `pip install` fails with "No matching distribution found".
+- No model files or `.env` secrets are needed for CI — `tests/conftest.py` mocks the RF/RoBERTa loaders before import, so the whole suite runs against the same mocks used locally.

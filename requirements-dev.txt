@@ -1,0 +1,9 @@
+# Dependencias para correr pytest + ruff (local o en CI), sobre el runtime
+# del backend (backend/requirements.txt, build CPU de torch). No incluye las
+# libs de entrenamiento del requirements.txt de la raiz (esas requieren GPU).
+#
+# Instalar con:
+#   pip install -r requirements-dev.txt --extra-index-url https://download.pytorch.org/whl/cpu
+-r backend/requirements.txt
+pytest==9.0.3
+ruff==0.15.22
