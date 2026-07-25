@@ -210,15 +210,16 @@ docs/                      # api.md, architecture.md, decision_tree.md, mvp_scop
 - The Random Forest expects exactly the columns in `feature_columns_v2.pkl`; `FeatureMapper.map` must produce those keys (missing ones default to 0).
 - When adding new backend tests, put them under `backend/tests/` (not a new top-level dir) so `pyproject.toml`'s `testpaths` and the shared `conftest.py` model mocks pick them up automatically.
 
-## Deployment
+## Deployment (Render, Docker)
 
-The backend is deployable independently of the rest of the repo (extension, training scripts, docs):
+The backend is deployable independently of the rest of the repo (extension, training scripts, docs). Deploys on Render as a **Docker** web service (Language = Docker in the Render dashboard):
 
-- `backend/requirements.txt` — runtime-only deps (no `datasets`/`evaluate`/`accelerate`/`pytest`), pinned to the CPU build of `torch`. The root `requirements.txt` stays the full dev/training environment (CUDA torch).
-- `backend/Dockerfile` — `python:3.12-slim`, build context is the **repo root** (not `backend/`) because the code uses absolute `backend.app.*` imports; only `backend/requirements.txt` and `backend/app/` are copied in. Model weights are **not** baked into the image — mount them at `/models` and the container picks them up via `MODELS_DIR` (see `backend/app/core/paths.py`).
+- **Dockerfile Path** (Render dashboard): `backend/Dockerfile`. Render doesn't auto-detect it because it isn't at the repo root; the build context stays the repo root either way (needed for the `backend.app.*` absolute imports — see below).
+- `backend/Dockerfile` — `python:3.12-slim`; only `backend/requirements.txt` and `backend/app/` are copied in. `CMD` runs `uvicorn` with `--port ${PORT:-8000}` — Render sets `$PORT` (default 10000) and forwards traffic there; a hardcoded port fails Render's health check. Falls back to `8000` for local `docker-compose`, which doesn't set `PORT`.
+- `backend/requirements.txt` — runtime-only deps (no `datasets`/`evaluate`/`accelerate`/`pytest`), pinned to the CPU build of `torch`. The root `requirements.txt` stays the full dev/training environment (CUDA torch) — never used at deploy time.
 - `docker-compose.yml` (repo root) — local way to build/run the image with `./models` bind-mounted read-only and `.env` loaded. `docker compose up backend`, then `curl http://localhost:8000/health`.
-- `.env.example` — template for `.env` (never commit real keys); `.dockerignore` keeps the build context to just what the backend needs.
-- `models/` is not versioned and is large (GBs) — don't `COPY` it into the image on any platform; always mount/fetch it separately at deploy time.
+- `.env.example` — template for the env vars Render needs configured in its dashboard (never commit real keys); `.dockerignore` keeps the build context to just what the backend needs.
+- `models/` is not versioned and is large (GBs) — locally it's a bind mount (`docker-compose.yml`), but Render's Docker service has no equivalent bind-mount step. `random_forest_v2.pkl`, `roberta_phishing_new/`, `roberta_content/` won't exist on the Render instance unless fetched some other way (e.g. a Render Disk mounted at `/models`, or downloading them during the build). Until that's solved, those signals degrade in a controlled way (`_safe()` in `phishing_service.py`) and `/metadata` reports them as absent — the backend still runs, just without those ML signals.
 
 ## CI (`.github/workflows/ci.yml`)
 
