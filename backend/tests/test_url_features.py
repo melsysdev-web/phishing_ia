@@ -1,4 +1,3 @@
-import pytest
 from backend.app.utils.url_features import extract_url_features
 
 

@@ -4,7 +4,6 @@ ContentClassifierService is mocked so no model is loaded.
 """
 from unittest.mock import patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 from backend.app.main import app

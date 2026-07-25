@@ -1,4 +1,4 @@
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -134,6 +134,21 @@ def test_root_returns_200():
 def test_root_returns_message():
     response = client.get("/")
     assert "message" in response.json()
+
+
+def test_doble_returns_200():
+    response = client.get("/doble/7")
+    assert response.status_code == 200
+
+
+def test_doble_calcula_resultado():
+    response = client.get("/doble/7")
+    assert response.json() == {"numero": 7, "doble": 14}
+
+
+def test_doble_rechaza_texto():
+    response = client.get("/doble/hola")
+    assert response.status_code == 422
 
 
 # ─────────────────────────────────────────────
@@ -274,8 +289,9 @@ def test_predict_url_echoed_in_response(mock_safe_response):
 # ─────────────────────────────────────────────
 
 def test_rf_predictor_returns_prediction():
-    from backend.app.random_forest.predictor import RandomForestPredictor
     from conftest import FEATURE_COLUMNS
+
+    from backend.app.random_forest.predictor import RandomForestPredictor
 
     features = {col: 0 for col in FEATURE_COLUMNS}
     result = RandomForestPredictor.predict(features)
@@ -285,8 +301,9 @@ def test_rf_predictor_returns_prediction():
 
 
 def test_rf_predictor_prediction_is_binary():
-    from backend.app.random_forest.predictor import RandomForestPredictor
     from conftest import FEATURE_COLUMNS
+
+    from backend.app.random_forest.predictor import RandomForestPredictor
 
     features = {col: 0 for col in FEATURE_COLUMNS}
     result = RandomForestPredictor.predict(features)
@@ -294,8 +311,9 @@ def test_rf_predictor_prediction_is_binary():
 
 
 def test_rf_predictor_probabilities_in_range():
-    from backend.app.random_forest.predictor import RandomForestPredictor
     from conftest import FEATURE_COLUMNS
+
+    from backend.app.random_forest.predictor import RandomForestPredictor
 
     features = {col: 1 for col in FEATURE_COLUMNS}
     result = RandomForestPredictor.predict(features)

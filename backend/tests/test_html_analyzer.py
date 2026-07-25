@@ -1,7 +1,8 @@
-import pytest
 from unittest.mock import patch
-from backend.app.analyzers.html_analyzer import HtmlAnalyzer
 
+import pytest
+
+from backend.app.analyzers.html_analyzer import HtmlAnalyzer
 
 _RICH_HTML = """
 <html>

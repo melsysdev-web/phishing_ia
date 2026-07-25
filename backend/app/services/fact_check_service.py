@@ -1,5 +1,6 @@
-import requests
 from urllib.parse import urlparse
+
+import requests
 
 from backend.app.core.config import settings
 

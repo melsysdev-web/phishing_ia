@@ -37,7 +37,10 @@ def test_metadata_returns_200():
 def test_metadata_has_required_keys():
     response = client.get("/metadata")
     data = response.json()
-    for key in ["api_version", "models", "rate_limit_per_minute", "cache_ttl_seconds", "cache_max_size"]:
+    for key in [
+        "api_version", "models", "rate_limit_per_minute",
+        "cache_ttl_seconds", "cache_max_size",
+    ]:
         assert key in data
     for key in ["random_forest", "roberta_url", "roberta_content"]:
         assert key in data["models"]

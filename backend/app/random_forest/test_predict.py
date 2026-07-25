@@ -1,6 +1,4 @@
-from backend.app.random_forest.predictor import (
-    RandomForestPredictor
-)
+from backend.app.random_forest.predictor import RandomForestPredictor
 
 features = {
     "URLLength": 30,

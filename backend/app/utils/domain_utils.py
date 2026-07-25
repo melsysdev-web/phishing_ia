@@ -1,7 +1,7 @@
-import whois
-import tldextract
-
 from datetime import datetime, timezone
+
+import tldextract
+import whois
 
 
 def get_domain_info(url: str):

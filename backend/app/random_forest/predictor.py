@@ -1,9 +1,6 @@
 import pandas as pd
 
-from .model_loader import (
-    model,
-    feature_columns
-)
+from .model_loader import feature_columns, model
 
 
 class RandomForestPredictor:

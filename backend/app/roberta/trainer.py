@@ -1,23 +1,15 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support
+from sklearn.model_selection import train_test_split
+from transformers import (
+    AutoModelForSequenceClassification,
+    AutoTokenizer,
+    Trainer,
+    TrainingArguments,
+)
 
 from datasets import Dataset
-
-from transformers import (
-    AutoTokenizer,
-    AutoModelForSequenceClassification,
-    TrainingArguments,
-    Trainer
-)
-
-from sklearn.model_selection import (
-    train_test_split
-)
-
-from sklearn.metrics import (
-    accuracy_score,
-    precision_recall_fscore_support
-)
 
 MODEL_NAME = "distilroberta-base"
 

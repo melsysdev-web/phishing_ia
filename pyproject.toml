@@ -1,0 +1,16 @@
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests", "backend/tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# Scripts generadores de reportes/diagramas: las líneas largas son
+# contenido narrativo (párrafos, celdas de tabla, labels), no lógica.
+"scripts/generate_*.py" = ["E501"]

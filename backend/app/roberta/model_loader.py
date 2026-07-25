@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 from backend.app.core.paths import get_models_dir
 

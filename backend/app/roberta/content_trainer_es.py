@@ -8,19 +8,20 @@ Output     : models/roberta_content   (sobreescribe el modelo inglés)
 """
 
 import numpy as np
-from datasets import load_dataset
-from transformers import (
-    AutoTokenizer,
-    AutoModelForSequenceClassification,
-    TrainingArguments,
-    Trainer,
-    EarlyStoppingCallback,
-)
 from sklearn.metrics import (
     accuracy_score,
-    precision_recall_fscore_support,
     confusion_matrix,
+    precision_recall_fscore_support,
 )
+from transformers import (
+    AutoModelForSequenceClassification,
+    AutoTokenizer,
+    EarlyStoppingCallback,
+    Trainer,
+    TrainingArguments,
+)
+
+from datasets import load_dataset
 
 # ──────────────────────────────────────────────
 # Config
@@ -50,7 +51,8 @@ print(f"  Columnas: {ds['train'].column_names}")
 def clean(batch):
     combined = []
     for title, text in zip(batch.get("title") or [""] * len(batch["label"]),
-                           batch.get("text")  or [""] * len(batch["label"])):
+                           batch.get("text")  or [""] * len(batch["label"]),
+                           strict=True):
         title = (title or "").strip()
         text  = (text  or "").strip()[:1000]
         combined.append(f"{title}. {text}" if title and text else title or text)
@@ -67,8 +69,8 @@ eval_ds  = ds["validation"]
 test_ds  = ds["test"]
 
 print(f"\nTrain: {len(train_ds)} | Val: {len(eval_ds)} | Test: {len(test_ds)}")
-n_fake = sum(1 for l in train_ds["label"] if l == 0)
-n_real = sum(1 for l in train_ds["label"] if l == 1)
+n_fake = sum(1 for label in train_ds["label"] if label == 0)
+n_real = sum(1 for label in train_ds["label"] if label == 1)
 print(f"Train — FAKE: {n_fake} | REAL: {n_real}")
 
 # ──────────────────────────────────────────────
