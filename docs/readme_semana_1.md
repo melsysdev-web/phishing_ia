@@ -307,7 +307,7 @@ Luego cargar `extension/` en `chrome://extensions/` con el modo desarrollador ac
 
 ## 17. Checklist de Revisión
 
-Antes de entregar, verifiquen:
+SE DEBE REVISAR SI:
 
 - [x] El problema está claramente descrito.
 - [x] Se explica quién usará o se beneficiará de la aplicación.
