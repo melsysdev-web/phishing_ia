@@ -204,6 +204,7 @@ docs/                      # api.md, architecture.md, decision_tree.md, mvp_scop
 
 - `RiskEngine` starts every URL at a score of **50** and applies positive/negative deltas from each signal. Final range is clamped to 0–100; ≥80 = LOW risk, ≥50 = MEDIUM, <50 = HIGH.
 - `_safe(fn, *args)` in `phishing_service.py` wraps every parallel call; a failed sub-service returns `{"error": "..."}` and never crashes the pipeline.
+- All three model loaders (`random_forest/model_loader.py`, `roberta/model_loader.py`, `ContentClassifierService`) are lazy — load via `@lru_cache`-wrapped `get_model()` on first call, not at import time. This matters: an eager `joblib.load(...)`/`from_pretrained(...)` at module scope would crash the whole app on startup if the model file is missing, instead of just that one signal degrading via `_safe()`.
 - `FusionEngine` gracefully degrades: if one model errors, it uses the other at full weight.
 - `ContentClassifierService` is lazy-loaded (via `@lru_cache`) on first call; uses local model dir if `models/roberta_content/config.json` exists, else HuggingFace hub. Inputs under 300 characters short-circuit to a `no_content`/`UNKNOWN`/`0.0` result rather than being run through the model.
 - Label normalization in `ContentClassifierService`: remote model returns `TRUE/FALSE`, local returns `REAL/FAKE` — both are normalized to `REAL/FAKE`.

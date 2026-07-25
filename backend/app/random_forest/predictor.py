@@ -1,6 +1,6 @@
 import pandas as pd
 
-from .model_loader import feature_columns, model
+from .model_loader import get_model
 
 
 class RandomForestPredictor:
@@ -9,6 +9,7 @@ class RandomForestPredictor:
     def predict(features: dict):
 
         try:
+            model, feature_columns = get_model()
 
             row = {}
 
