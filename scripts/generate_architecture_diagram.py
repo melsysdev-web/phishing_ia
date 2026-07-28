@@ -183,7 +183,7 @@ section_bg(ax, 0.01, 0.305, 0.65, 0.1,
 
 box(ax, 0.04, 0.325, 0.25, 0.058, "FeatureMapper.map()",
     "#546E7A", fontsize=8.5,
-    sublabel="18 features URL+HTML → RF input dict")
+    sublabel="20 features URL+HTML → RF input dict")
 box(ax, 0.33, 0.325, 0.28, 0.058, "RandomForestPredictor",
     C_ML, fontsize=9,
     sublabel="random_forest_v2.pkl · feature_columns_v2.pkl\nphishing_probability")
@@ -239,8 +239,8 @@ ext_boxes = [
     ("VirusTotal API v3",       "70+ engines · base64 URL ID",     0.72, 0.44),
     ("Google Safe Browsing v4", "is_threat · MALWARE / PHISHING",  0.72, 0.36),
     ("Google Fact Check",       "publisher_count · verdict",       0.72, 0.28),
-    ("random_forest_v2.pkl",    "scikit-learn · 18 features",      0.72, 0.20),
-    ("roberta_phishing/",       "distilroberta-base fine-tuned",   0.72, 0.135),
+    ("random_forest_v2.pkl",    "scikit-learn · 34 features",      0.72, 0.20),
+    ("roberta_phishing_new/",   "distilroberta-base fine-tuned",   0.72, 0.135),
 ]
 for lbl, sub, bx, by in ext_boxes:
     box(ax, bx, by, 0.26, 0.058, lbl, C_EXT_API, fontsize=8.5, sublabel=sub)

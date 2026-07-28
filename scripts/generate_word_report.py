@@ -199,7 +199,7 @@ add_table(doc,
         ["4 — Orquestación", "PhishingService.analyze()", "Coordina todas las sub-tareas con _safe() wrapping"],
         ["5 — Features CPU", "extract_url_features()", "13 features de estructura de URL (instantáneo)"],
         ["6 — Paralelo I/O", "ThreadPoolExecutor (6 workers)", "WHOIS · HTML · VirusTotal · Safe Browsing · Fact Check · RoBERTa URL"],
-        ["7 — Features ML", "FeatureMapper + RandomForest", "18 features URL+HTML → predicción RF"],
+        ["7 — Features ML", "FeatureMapper + RandomForest", "20 features URL+HTML → predicción RF"],
         ["8 — Fusion", "FusionEngine", "Ensemble ponderado: 40% RF + 60% RoBERTa"],
         ["9 — Score", "RiskEngine", "Score 0–100 con reglas + ML → LOW/MEDIUM/HIGH"],
         ["10 — Salida", "JSON Response", "Resultado completo con todas las señales y análisis_time_ms"],
@@ -310,7 +310,7 @@ heading(doc, "4. Componentes de Inteligencia Artificial", 1, "1E3A5F")
 
 heading(doc, "4.1 Random Forest (RF)", 2, "E65100")
 bullet(doc, "Tipo: Clasificador de ensamble supervisado (scikit-learn)")
-bullet(doc, "Entrada: 18 features combinadas de URL + HTML")
+bullet(doc, "Entrada: 20 features combinadas de URL + HTML (FeatureMapper), rellenadas a las 34 columnas que el modelo espera")
 bullet(doc, "Features de URL: URLLength, DomainLength, PathLength, NumDots, NumHyphens, NumQuestionMarks, ContainsAtSymbol, ContainsDoubleSlashRedirect, IsDomainIP, TLDLength, NoOfSubDomain, IsHTTPS", level=1)
 bullet(doc, "Features de HTML: HasTitle, HasFavicon, HasDescription, HasPasswordField, HasHiddenFields, NoOfImage, NoOfCSS, NoOfJS", level=1)
 bullet(doc, "Salida: phishing_probability ∈ [0, 1]")
@@ -323,7 +323,7 @@ bullet(doc, "Base: distilroberta-base (66M parámetros, versión destilada de Ro
 bullet(doc, "Tarea: Clasificación binaria directamente sobre el string de la URL")
 bullet(doc, "Pipeline: tokenizer(url, max_length=128) → model(**inputs) → softmax → phishing_probability")
 bullet(doc, "Carga: lazy via get_model() — inicializado solo en el primer request (ahorra RAM al arrancar)")
-bullet(doc, "Artefactos: models/roberta_phishing/ (directorio con config.json + pytorch_model.bin)")
+bullet(doc, "Artefactos: models/roberta_phishing_new/ (directorio con config.json + pytorch_model.bin)")
 
 doc.add_paragraph()
 heading(doc, "4.3 FusionEngine — Ensemble Ponderado", 2, "F57F17")
@@ -417,7 +417,7 @@ add_table(doc,
         ["Ensemble Learning / Model Fusion",
          "FusionEngine combina Random Forest (40%) y RoBERTa (60%) con degradación automática si un modelo falla"],
         ["Feature Engineering",
-         "13 features de estructura de URL + 8 features de HTML DOM → 18 features normalizadas para RF vía FeatureMapper"],
+         "13 features de estructura de URL + 8 features de HTML DOM → 20 features normalizadas para RF vía FeatureMapper"],
         ["Sistemas Híbridos Reglas+ML",
          "RiskEngine integra 29 señales heurísticas más la probabilidad ML del FusionEngine sobre una base de 50 puntos"],
         ["APIs REST y Microservicios",
