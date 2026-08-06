@@ -126,7 +126,7 @@ Contrato completo, ejemplos de curl y códigos de error: [`docs/api.md`](docs/ap
 
 Con el backend corriendo, abrir **`http://localhost:8000/docs`** (Swagger UI, generado automáticamente por FastAPI): cada endpoint tiene un botón **Try it out** para ejecutar requests reales desde el navegador, sin curl ni Postman.
 
-Para Postman: **Import → Link** → `http://localhost:8000/openapi.json` importa los 7 endpoints con sus schemas.
+Para Postman: **Import → Link** → `http://localhost:8000/openapi.json` importa los endpoints con sus schemas.
 
 Ejemplo con curl:
 ```bash

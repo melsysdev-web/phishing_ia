@@ -38,14 +38,18 @@ class RandomForestPredictor:
                 "prediction": int(
                     prediction
                 ),
-                "legitimate_probability":
+                # model.classes_ is always sorted ascending ([0, 1]), and the
+                # training labels use 0 = phishing, 1 = legitimate (see
+                # datasets/raw/phishing_urls.csv), so predict_proba columns
+                # are [phishing, legitimate] in that order.
+                "phishing_probability":
                     round(
                         float(
                             probabilities[0]
                         ),
                         4
                     ),
-                "phishing_probability":
+                "legitimate_probability":
                     round(
                         float(
                             probabilities[1]

@@ -2,7 +2,6 @@ import logging
 import re
 import threading
 import time
-from collections import defaultdict
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,10 +31,11 @@ if settings.environment == "production" and not settings.api_key:
     )
 
 # ── Rate limiting ────────────────────────────────────────────────────────────
-_RATE_WINDOW = 60   # segundos
-_RATE_MAX    = 30   # solicitudes por ventana por IP
+_RATE_WINDOW   = 60     # segundos
+_RATE_MAX      = 30     # solicitudes por ventana por IP
+_RATE_MAX_IPS  = 10_000  # límite de IPs distintas rastreadas (evita fuga de memoria)
 
-_rate_store: dict = defaultdict(list)
+_rate_store: dict = {}
 _rate_lock  = threading.Lock()
 
 _RATE_LIMITED_PATHS = {"/predict", "/analyze-content"}
@@ -50,14 +50,21 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         now = time.time()
 
         with _rate_lock:
-            _rate_store[ip] = [t for t in _rate_store[ip] if now - t < _RATE_WINDOW]
-            if len(_rate_store[ip]) >= _RATE_MAX:
+            recent = [t for t in _rate_store.get(ip, []) if now - t < _RATE_WINDOW]
+            if len(recent) >= _RATE_MAX:
+                _rate_store[ip] = recent
                 return JSONResponse(
                     {"error": "Demasiadas solicitudes. Intenta de nuevo en 1 minuto."},
                     status_code=429,
                     headers={"Retry-After": "60"},
                 )
-            _rate_store[ip].append(now)
+            recent.append(now)
+
+            if ip not in _rate_store and len(_rate_store) >= _RATE_MAX_IPS:
+                oldest_ip = min(_rate_store, key=lambda k: max(_rate_store[k], default=0))
+                del _rate_store[oldest_ip]
+
+            _rate_store[ip] = recent
 
         return await call_next(request)
 

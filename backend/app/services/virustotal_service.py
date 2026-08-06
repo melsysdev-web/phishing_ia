@@ -64,11 +64,12 @@ class VirusTotalService:
             )
 
             if response.status_code == 200:
-                stats = (
-                    response.json()["data"]["attributes"][
+                try:
+                    stats = response.json()["data"]["attributes"][
                         "last_analysis_stats"
                     ]
-                )
+                except (KeyError, ValueError, TypeError):
+                    return {"error": "VirusTotal: respuesta con formato inesperado"}
                 return _parse_stats(stats)
 
             if response.status_code == 404:
@@ -111,7 +112,10 @@ class VirusTotalService:
                     )
                 }
 
-            analysis_id = submit.json()["data"]["id"]
+            try:
+                analysis_id = submit.json()["data"]["id"]
+            except (KeyError, ValueError, TypeError):
+                return {"error": "VirusTotal: respuesta de envío con formato inesperado"}
 
             analysis = requests.get(
                 f"{_BASE_URL}/analyses/{analysis_id}",
@@ -127,9 +131,10 @@ class VirusTotalService:
                     )
                 }
 
-            stats = (
-                analysis.json()["data"]["attributes"]["stats"]
-            )
+            try:
+                stats = analysis.json()["data"]["attributes"]["stats"]
+            except (KeyError, ValueError, TypeError):
+                return {"error": "VirusTotal: respuesta de análisis con formato inesperado"}
             return _parse_stats(stats)
 
         except requests.Timeout:

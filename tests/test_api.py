@@ -321,6 +321,22 @@ def test_rf_predictor_probabilities_in_range():
     assert 0.0 <= result["legitimate_probability"] <= 1.0
 
 
+def test_rf_predictor_probability_index_mapping():
+    """model.classes_ is always sorted ascending ([0, 1]), and training labels
+    use 0=phishing/1=legitimate (datasets/raw/phishing_urls.csv), so
+    predict_proba()[0] must map to phishing_probability and [1] to
+    legitimate_probability. Guards against reintroducing a silent swap."""
+    from conftest import FEATURE_COLUMNS
+
+    from backend.app.random_forest.predictor import RandomForestPredictor
+
+    features = {col: 0 for col in FEATURE_COLUMNS}
+    result = RandomForestPredictor.predict(features)
+    # conftest mocks predict_proba to return [[0.15, 0.85]]
+    assert result["phishing_probability"] == 0.15
+    assert result["legitimate_probability"] == 0.85
+
+
 def test_roberta_predictor_returns_prediction():
     from backend.app.roberta.predictor import RobertaPredictor
 

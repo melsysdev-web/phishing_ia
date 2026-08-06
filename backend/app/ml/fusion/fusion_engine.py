@@ -44,6 +44,7 @@ class FusionEngine:
                 )
             )
 
+        phishing_prob = max(0.0, min(1.0, phishing_prob))
         prediction = 1 if phishing_prob >= 0.5 else 0
 
         return {

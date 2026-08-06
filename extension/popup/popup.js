@@ -50,12 +50,23 @@ function renderHistory() {
     const li = document.createElement('li');
     li.className = 'history-item';
     li.title = url;
-    li.innerHTML = `
-      <span class="history-dot ${risk}"></span>
-      <span class="history-url">${shortUrl}</span>
-      <span class="history-score ${risk}">${score}</span>
-      <span class="history-time">${formatTimeAgo(ts)}</span>
-    `;
+
+    const dot = document.createElement('span');
+    dot.className = `history-dot ${risk}`;
+
+    const urlSpan = document.createElement('span');
+    urlSpan.className = 'history-url';
+    urlSpan.textContent = shortUrl;
+
+    const scoreSpan = document.createElement('span');
+    scoreSpan.className = `history-score ${risk}`;
+    scoreSpan.textContent = score;
+
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'history-time';
+    timeSpan.textContent = formatTimeAgo(ts);
+
+    li.append(dot, urlSpan, scoreSpan, timeSpan);
     li.addEventListener('click', () => {
       document.getElementById('urlInput').value = url;
       analyze(url);
@@ -239,10 +250,15 @@ function renderReasons(reasons) {
     const pos = isPositive(text);
     const li  = document.createElement("li");
     li.className = "reason-item";
-    li.innerHTML = `
-      <span class="reason-icon ${pos ? "pos" : "neg"}">${pos ? "✓" : "✗"}</span>
-      <span>${text}</span>
-    `;
+
+    const icon = document.createElement("span");
+    icon.className = `reason-icon ${pos ? "pos" : "neg"}`;
+    icon.textContent = pos ? "✓" : "✗";
+
+    const label = document.createElement("span");
+    label.textContent = text;
+
+    li.append(icon, label);
     list.appendChild(li);
   });
 }
