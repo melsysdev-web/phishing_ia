@@ -14,6 +14,7 @@ const ApiClient = {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
       body: JSON.stringify({ url }),
+      signal: AbortSignal.timeout(60000),
     });
     if (!res.ok) throw new Error(`Error del servidor: ${res.status}`);
     return res.json();

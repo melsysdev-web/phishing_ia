@@ -34,7 +34,7 @@ flowchart TD
     G1 --> G2
 
     subgraph G2 [Grupo 2 — Paralelo · 2 workers]
-        RF[Random Forest\n14 URL+HTML features]
+        RF[Random Forest\n34 URL+HTML features]
         CC[Content Classifier\nRoBERTa fake-news]
     end
 
@@ -55,7 +55,7 @@ flowchart TD
 | `SafeBrowsingService` | URL | is_threat + tipos de amenaza |
 | `FactCheckService` | Dominio | verdict: reliable/suspicious/unreliable/no_data |
 | `RobertaPredictor` | URL string | phishing_probability (0-1) |
-| `RandomForestPredictor` | 14 features mapeadas | phishing_probability (0-1) |
+| `RandomForestPredictor` | 20 features mapeadas (rellenadas a 34 columnas con 0 antes de predecir) | phishing_probability (0-1) |
 | `ContentClassifierService` | Texto de la página | label: REAL/FAKE + confidence |
 | `FusionEngine` | RF + RoBERTa URL | phishing_probability combinada |
 | `RiskEngine` | Todos los resultados | score 0-100, risk level, reasons[] |
@@ -108,9 +108,9 @@ El score parte de **50** y se ajusta de forma aditiva por cada señal. Se limita
 
 | Archivo | Descripción |
 |---|---|
-| `models/random_forest_v2.pkl` | RandomForest entrenado con 14 features URL+HTML |
+| `models/random_forest_v2.pkl` | RandomForest entrenado con 34 features URL+HTML |
 | `models/feature_columns_v2.pkl` | Orden de columnas esperado por el RF |
-| `models/roberta_phishing/` | `distilroberta-base` fine-tuned en URLs (strings) |
+| `models/roberta_phishing_new/` | `distilroberta-base` fine-tuned en URLs (strings) |
 | `models/roberta_content/` | RoBERTa fine-tuned en `GonzaloA/fake_news`; fallback a `hamzab/roberta-fake-news-classification` si no existe |
 
 ### FusionEngine

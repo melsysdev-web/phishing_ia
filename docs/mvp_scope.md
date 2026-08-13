@@ -43,8 +43,8 @@ Desarrollar una extensión de navegador que clasifique URLs como **Seguro / Sosp
 
 | Modelo | Descripción |
 |---|---|
-| Random Forest v2 | 14 features URL+HTML, `random_forest_v2.pkl` |
-| RoBERTa URL | `distilroberta-base` fine-tuned en URLs (`models/roberta_phishing/`) |
+| Random Forest v2 | 34 features URL+HTML, `random_forest_v2.pkl` |
+| RoBERTa URL | `distilroberta-base` fine-tuned en URLs (`models/roberta_phishing_new/`) |
 | Content Classifier | Fine-tuned en `GonzaloA/fake_news` (`models/roberta_content/`) |
 | FusionEngine | RF × 0.4 + RoBERTa URL × 0.6 |
 

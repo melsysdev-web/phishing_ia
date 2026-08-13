@@ -34,7 +34,7 @@ FastAPI Backend
         │   └── RoBERTa URL Classifier
         │
         ├── Grupo 2 — paralelo (2 workers):
-        │   ├── Random Forest (14 features URL+HTML)
+        │   ├── Random Forest (34 features URL+HTML)
         │   └── Content Classifier (RoBERTa fake-news)
         │
         └── FusionEngine (RF×0.4 + RoBERTa×0.6)
@@ -96,7 +96,7 @@ ALLOWED_ORIGINS=
 
 ### Modelos entrenados
 
-La carpeta `models/` tampoco está versionada (pesa ~30 MB). Para correr el proyecto en otra máquina hay que copiarla manualmente desde una instalación existente, o reentrenar los modelos con los scripts de la sección [Modelos ML](#modelos-ml). Sin `models/roberta_content/`, el Content Classifier cae automáticamente al fallback de HuggingFace (`hamzab/roberta-fake-news-classification`, se descarga solo); sin `random_forest_v2.pkl` o `roberta_phishing/`, esas señales fallan de forma controlada (el pipeline no se cae, ver `_safe()` en `phishing_service.py`).
+La carpeta `models/` tampoco está versionada (pesa ~820 MB: `random_forest_v2.pkl` 25 MB + `roberta_phishing_new/` 317 MB + `roberta_content/` 479 MB). Para correr el proyecto en otra máquina hay que copiarla manualmente desde una instalación existente, o reentrenar los modelos con los scripts de la sección [Modelos ML](#modelos-ml) — si el entrenamiento deja subcarpetas `checkpoint-*` dentro de `roberta_phishing_new/` o `roberta_content/`, se pueden borrar: son artefactos intermedios de HuggingFace `Trainer`, no se usan en inferencia y solo ocupan espacio. Sin `models/roberta_content/`, el Content Classifier cae automáticamente al fallback de HuggingFace (`hamzab/roberta-fake-news-classification`, se descarga solo); sin `random_forest_v2.pkl` o `roberta_phishing_new/`, esas señales fallan de forma controlada (el pipeline no se cae, ver `_safe()` en `phishing_service.py`).
 
 ---
 
@@ -126,7 +126,7 @@ Contrato completo, ejemplos de curl y códigos de error: [`docs/api.md`](docs/ap
 
 Con el backend corriendo, abrir **`http://localhost:8000/docs`** (Swagger UI, generado automáticamente por FastAPI): cada endpoint tiene un botón **Try it out** para ejecutar requests reales desde el navegador, sin curl ni Postman.
 
-Para Postman: **Import → Link** → `http://localhost:8000/openapi.json` importa los 7 endpoints con sus schemas.
+Para Postman: **Import → Link** → `http://localhost:8000/openapi.json` importa los endpoints con sus schemas.
 
 Ejemplo con curl:
 ```bash
@@ -167,9 +167,9 @@ Los modelos entrenados van en la carpeta `models/`:
 
 | Archivo | Descripción |
 |---|---|
-| `random_forest_v2.pkl` | Random Forest — 14 features URL+HTML |
+| `random_forest_v2.pkl` | Random Forest — 34 features URL+HTML |
 | `feature_columns_v2.pkl` | Orden de columnas del RF |
-| `roberta_phishing/` | RoBERTa fine-tuned en URLs |
+| `roberta_phishing_new/` | RoBERTa fine-tuned en URLs |
 | `roberta_content/` | RoBERTa fine-tuned en noticias falsas/reales |
 
 ### Entrenar modelos

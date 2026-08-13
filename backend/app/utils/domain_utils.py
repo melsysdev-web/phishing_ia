@@ -12,7 +12,7 @@ def get_domain_info(url: str):
 
     try:
 
-        w = whois.whois(domain)
+        w = whois.whois(domain, timeout=10)
 
         creation_date = w.creation_date
         expiration_date = w.expiration_date

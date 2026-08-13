@@ -10,7 +10,7 @@
 | Scikit-Learn | 1.x |
 | Transformers | 4.x |
 | Chrome | Manifest V3 |
-| Modelos activos | `random_forest_v2.pkl`, `roberta_phishing/`, `roberta_content/` |
+| Modelos activos | `random_forest_v2.pkl`, `roberta_phishing_new/`, `roberta_content/` |
 
 ---
 

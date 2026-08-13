@@ -312,7 +312,10 @@ function renderReasons(reasons) {
   }
   reasons.forEach(r => {
     const li = document.createElement("li");
-    li.innerHTML = `<span class="reason-icon">${reasonIcon(r)}</span>${r}`;
+    const icon = document.createElement("span");
+    icon.className = "reason-icon";
+    icon.textContent = reasonIcon(r);
+    li.append(icon, document.createTextNode(r));
     list.appendChild(li);
   });
 }

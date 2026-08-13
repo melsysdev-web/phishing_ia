@@ -71,7 +71,7 @@ El sistema no depende de una sola fuente. Si VirusTotal no tiene datos del domin
 | 5 | **Google Safe Browsing** | Lista negra de Google: malware, phishing, software no deseado |
 | 6 | **Google Fact Check** | Reputación del dominio como fuente de noticias (detecta desinformación) |
 | 7 | **RoBERTa URL** | Modelo de IA entrenado en miles de URLs de phishing — detecta patrones en el string |
-| 8 | **Random Forest** | Modelo clásico ML con 14 features combinadas de URL + HTML |
+| 8 | **Random Forest** | Modelo clásico ML con 34 features combinadas de URL + HTML |
 | 9 | **Clasificador de Contenido** | Analiza el texto de la página — detecta contenido falso o engañoso |
 
 Los modelos 7 y 8 se combinan con pesos (60%/40%) en el **FusionEngine** antes de pasarlo al motor de riesgo.
@@ -114,7 +114,7 @@ Este enfoque es **transparente y explicable**: cada puntuación tiene una razón
 
 **Random Forest**
 - Modelo clásico de Machine Learning, muy interpretable
-- Entrenado con 14 features extraídas de URLs reales y HTML de páginas
+- Entrenado con 34 features extraídas de URLs reales y HTML de páginas
 - Alta velocidad, sin GPU necesaria
 
 **RoBERTa URL Classifier**
