@@ -2,10 +2,13 @@ import logging
 import re
 import threading
 import time
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from prometheus_client import Gauge
+from prometheus_fastapi_instrumentator import Instrumentator
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
@@ -21,6 +24,22 @@ from backend.app.schemas.response_schema import (
 from backend.app.utils import url_cache
 
 logger = logging.getLogger("phishing_api")
+
+# Referencia de "arranque": desde que uvicorn importa este módulo hasta que el
+# startup de FastAPI termina (incluye wiring de middlewares y router,
+# no la carga de modelos ML — esos son lazy, ver core del pipeline).
+_process_start_time = time.time()
+
+app_startup_seconds = Gauge(
+    "app_startup_duration_seconds",
+    "Tiempo desde el import del módulo hasta que FastAPI termina su startup",
+)
+
+
+@asynccontextmanager
+async def _lifespan(_: FastAPI):
+    app_startup_seconds.set(time.time() - _process_start_time)
+    yield
 
 # Falla rápido si el backend se despliega en producción sin autenticación.
 if settings.environment == "production" and not settings.api_key:
@@ -87,6 +106,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 app = FastAPI(
     title="AI Phishing Detector",
     version="1.0.0",
+    lifespan=_lifespan,
     openapi_tags=[
         {"name": "Sistema", "description": "Liveness y sanity checks, sin autenticación."},
         {
@@ -123,6 +143,13 @@ app.add_middleware(RateLimitMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 
 app.include_router(router)
+
+# instrument() se llama después de registrar los demás middlewares para que
+# quede como el más externo del stack y mida la latencia total de la request
+# (CORS + rate limit + logging + endpoint), no solo el tiempo del handler.
+# expose() publica /metrics sin autenticación (igual que /health y /metadata)
+# para que Prometheus pueda scrapearlo sin necesitar X-API-Key.
+Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
 
 # ── Manejo controlado de errores no previstos ────────────────────────────────

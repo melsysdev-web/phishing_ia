@@ -120,8 +120,9 @@ All three loaders resolve this directory via `get_models_dir()` in `backend/app/
 | `GET` | `/metadata` | API version, which ML model files are present on disk, and active rate-limit/cache config |
 | `GET` | `/cache/stats` | Cache hit/miss stats and entry count |
 | `DELETE` | `/cache` | Evict all cached results |
+| `GET` | `/metrics` | Prometheus scrape endpoint (request/latency metrics + startup duration), not in the OpenAPI schema — see "Monitoring" below |
 
-The whole router (including `/predict`, `/analyze-content`, and the cache endpoints) sits behind `require_api_key`; only `/`, `/health`, and `/metadata` (defined directly on `app` in `main.py`) are unauthenticated. Every endpoint has a typed Pydantic `response_model` from `backend/app/schemas/response_schema.py` for the OpenAPI/Swagger contract. Full request/response contract with curl examples: `docs/api.md`.
+The whole router (including `/predict`, `/analyze-content`, and the cache endpoints) sits behind `require_api_key`; only `/`, `/health`, `/metadata`, and `/metrics` (all defined directly on `app` in `main.py`) are unauthenticated. Every endpoint has a typed Pydantic `response_model` from `backend/app/schemas/response_schema.py` for the OpenAPI/Swagger contract, except `/metrics` (plain-text Prometheus exposition format, added by `prometheus-fastapi-instrumentator`, excluded from the schema via `include_in_schema=False`). Full request/response contract with curl examples: `docs/api.md`.
 
 ### Chrome extension (`extension/`)
 
@@ -226,6 +227,16 @@ The backend is deployable independently of the rest of the repo (extension, trai
 - `docker-compose.yml` (repo root) — local way to build/run the image with `./models` bind-mounted read-only and `.env` loaded. `docker compose up backend`, then `curl http://localhost:8000/health`.
 - `.env.example` — template for the env vars Render needs configured in its dashboard (never commit real keys); `.dockerignore` keeps the build context to just what the backend needs.
 - `models/` is not versioned and weighs ~820 MB (`random_forest_v2.pkl` 25 MB + `roberta_phishing_new/` 317 MB + `roberta_content/` 479 MB — training-only `checkpoint-*` subdirs some trainers leave behind are not needed at inference time and should be deleted, not deployed) — locally it's a bind mount (`docker-compose.yml`), but Render's Docker service has no equivalent bind-mount step. `random_forest_v2.pkl`, `roberta_phishing_new/`, `roberta_content/` won't exist on the Render instance unless fetched some other way (e.g. a Render Disk mounted at `/models`, or downloading them during the build). Until that's solved, those signals degrade in a controlled way (`_safe()` in `phishing_service.py`) and `/metadata` reports them as absent — the backend still runs, just without those ML signals.
+
+## Monitoring (Prometheus + Grafana, local only)
+
+`docker-compose.yml` adds `prometheus` and `grafana` services alongside `backend` for local performance visibility — not deployed to Render.
+
+- `GET /metrics` (`backend/app/main.py`) is unauthenticated (like `/health`/`/metadata`) and exposes Prometheus text-format metrics via `prometheus-fastapi-instrumentator`: `http_requests_total`, `http_request_duration_seconds`/`_highr_seconds` (latency histograms), and request/response size histograms, all labeled by `handler`+`status`. `Instrumentator().instrument(app)` is called **after** `RateLimitMiddleware`/`RequestLoggingMiddleware`/`CORSMiddleware` are registered so it ends up outermost in the middleware stack and measures true end-to-end request latency, not just handler time.
+- `app_startup_duration_seconds` (custom `Gauge`, also in `main.py`) is set once in the app's `lifespan` context manager, measured from module import (`_process_start_time`, set at module scope) to FastAPI startup completing. This is a proxy for boot/launch performance — it does **not** include ML model loading, since those loaders are lazy (see `Key conventions`) and only run on first `/predict`/`/analyze-content` call.
+- `prometheus/prometheus.yml` scrapes `backend:8000/metrics` (Compose service-name DNS, not `localhost`) every 5s.
+- `grafana/provisioning/{datasources,dashboards}/` auto-provision a `Prometheus` datasource (`http://prometheus:9090`) and a starter dashboard (`grafana/dashboards/phishing-backend.json`) on container start — no manual UI setup needed. The dashboard has 4 panels: last startup duration, 5xx error rate, request rate by endpoint, p95 latency by endpoint.
+- Run with `docker compose up -d backend prometheus grafana`, then Grafana is at `http://localhost:3000` (`admin`/`admin` — change it if this ever runs anywhere other than localhost) and Prometheus at `http://localhost:9090`.
 
 ## CI (`.github/workflows/ci.yml`)
 
