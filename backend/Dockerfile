@@ -4,9 +4,14 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# perl-base ships in the base image marked "essential" by Debian but nothing
+# in this app or its deps calls perl; it's purged to drop unfixed Debian CVEs
+# (docker scout) that a Python-only image has no other way to resolve.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libxml2 \
     libxslt1.1 \
+    && apt-get purge -y --allow-remove-essential perl-base \
+    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
 COPY backend/requirements.txt backend/requirements.txt
