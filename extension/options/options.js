@@ -1,4 +1,4 @@
-const DEFAULT_BACKEND = "http://localhost:8000";
+const DEFAULT_BACKEND = "https://phishing-ia-2.onrender.com";
 
 function isLocalhost(url) {
   try {
