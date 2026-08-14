@@ -1,4 +1,4 @@
-const _DEFAULT_URL = "http://localhost:8000";
+const _DEFAULT_URL = "https://phishing-ia-2.onrender.com";
 
 async function _config() {
   return new Promise(resolve => {

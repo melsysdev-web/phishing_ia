@@ -18,11 +18,16 @@ COPY backend/requirements.txt backend/requirements.txt
 RUN pip install --no-cache-dir -r backend/requirements.txt \
     --extra-index-url https://download.pytorch.org/whl/cpu
 
+# Los pesos (~821MB: random_forest_v2.pkl, roberta_phishing_new/, roberta_content/)
+# no viven en el repo (models/ esta en .gitignore) ni en un volumen persistente
+# (Render free tier no ofrece disco persistente), asi que se descargan desde el
+# repo publico de Hugging Face Hub durante el build y quedan horneados en la
+# imagen. Repo: https://huggingface.co/mel3601/phishing-ia-models
+RUN python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='mel3601/phishing-ia-models', local_dir='/models')"
+
 COPY backend/__init__.py backend/__init__.py
 COPY backend/app backend/app
 
-# Los modelos NO se copian a la imagen (pesan varios GB); se montan como
-# volumen en runtime y se apuntan con MODELS_DIR (ver docker-compose.yml).
 ENV MODELS_DIR=/models
 ENV PYTHONUNBUFFERED=1
 

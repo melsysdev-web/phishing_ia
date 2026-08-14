@@ -66,7 +66,7 @@ Tras la limpieza se verificó que el backend sigue funcionando de forma idéntic
 ## Supuestos
 
 - Tráfico bajo, propio de un proyecto académico/demo — no está dimensionado para producción con carga sostenida real.
-- Los modelos se sirven como volumen/disco montado en `/models` (variable `MODELS_DIR`), no horneados dentro de la imagen Docker (`.dockerignore` ya excluye `models/` del build context).
+- En Render (free tier, sin disco persistente) los modelos se descargan desde el repo público de Hugging Face Hub (`mel3601/phishing-ia-models`) durante el build de `backend/Dockerfile` y quedan horneados en la imagen bajo `/models` (variable `MODELS_DIR`). Localmente, `docker-compose.yml` sigue montando `./models:/models:ro` como volumen, que tiene prioridad sobre lo horneado en la imagen.
 - Sin persistencia de datos entre despliegues más allá de los archivos de modelo — aceptable porque el servicio es *stateless* (cada análisis es independiente, el cache es solo una optimización).
 - Sin autenticación de usuarios ni multi-tenancy — la única autenticación es a nivel de servicio (`X-API-Key` opcional, ver `backend/app/core/security.py`).
 
