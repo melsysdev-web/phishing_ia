@@ -12,3 +12,4 @@ __pycache__/
 models/
 checkpoints/
 ~$*.docx
+ai-phishing-detector.zip
