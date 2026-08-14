@@ -35,4 +35,14 @@ EXPOSE 8000
 
 # $PORT is set by Render (default 10000) and must be respected; falls back to
 # 8000 for local docker-compose, which doesn't set PORT.
-CMD ["sh", "-c", "uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+#
+# --proxy-headers makes uvicorn read X-Forwarded-For from the connecting
+# peer and use it as request.client.host (needed for RateLimitMiddleware in
+# main.py to see real visitor IPs instead of Render's load balancer IP —
+# without this every user shares one rate-limit bucket in production).
+# --forwarded-allow-ips defaults to the safe/inert 127.0.0.1 (same as
+# uvicorn's own default) so a directly-exposed local docker-compose
+# instance doesn't trust a client-supplied X-Forwarded-For by default; set
+# FORWARDED_ALLOW_IPS=* in Render's dashboard env vars, where the container
+# is never reachable except through Render's own proxy.
+CMD ["sh", "-c", "uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips=${FORWARDED_ALLOW_IPS:-127.0.0.1}"]
