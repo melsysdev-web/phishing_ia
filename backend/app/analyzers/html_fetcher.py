@@ -4,6 +4,14 @@ from urllib.parse import urljoin, urlparse
 
 import requests
 
+from backend.app.core import ssrf_guard
+
+# Protección principal contra SSRF: parchea el punto donde urllib3 abre la
+# conexión TCP real para que la IP se resuelva y valide en la misma llamada
+# que conecta (sin ventana para DNS rebinding entre el chequeo de abajo y la
+# petición real). Ver backend/app/core/ssrf_guard.py.
+ssrf_guard.install()
+
 _TIMEOUT = 10
 _MAX_REDIRECTS = 5
 _MAX_BYTES = 2 * 1024 * 1024  # 2 MB — evita agotar memoria con respuestas gigantes
@@ -23,12 +31,15 @@ def _is_blocked_ip(ip: str) -> bool:
 
 
 def _is_safe_host(hostname: str) -> bool:
-    """Resuelve el hostname y rechaza si cualquier IP asociada es interna/privada.
+    """Chequeo temprano de defensa en profundidad (no es la protección principal).
 
-    Esto es defensa contra SSRF: la URL a analizar la controla quien llama a
-    /predict, y sin este chequeo el backend seguiría enlaces hacia
-    localhost, redes internas (RFC1918) o metadata endpoints de cloud
-    (169.254.169.254).
+    Resuelve el hostname y rechaza si cualquier IP asociada es interna o
+    privada, para devolver un error claro antes de intentar la conexión. La
+    protección que realmente cierra la ventana de DNS rebinding es
+    `ssrf_guard.install()` (arriba), que valida la IP en el mismo momento en
+    que se abre la conexión TCP real — este chequeo por sí solo, al resolver
+    el hostname por separado de la petición real, se puede saltar con una
+    respuesta DNS distinta entre esta resolución y la de `requests.get`.
     """
     try:
         infos = socket.getaddrinfo(hostname, None)
