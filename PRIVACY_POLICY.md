@@ -33,7 +33,7 @@ No se envían credenciales, historial de navegación completo, ni datos de otras
 
 | Permiso | Para qué se usa |
 |---|---|
-| `activeTab` / `tabs` | Leer la URL de la pestaña activa cuando el usuario pulsa "Analizar" |
+| `activeTab` | Leer la URL de la pestaña activa cuando el usuario pulsa "Analizar" |
 | `scripting` | Extraer el texto visible de la página activa para la pestaña de análisis de contenido |
 | `clipboardRead` | Permitir pegar una URL o texto copiado directamente en el panel |
 | `storage` | Guardar la URL del backend y la API key configuradas por el usuario |

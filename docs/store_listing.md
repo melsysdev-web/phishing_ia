@@ -1,12 +1,20 @@
-# Ficha para Chrome Web Store — AI Phishing Detector
+# Ficha para Microsoft Edge Add-ons — AI Phishing Detector
 
-Borrador de los textos del formulario del Developer Dashboard. Ajustar antes de enviar si algo no aplica.
+Borrador de los textos del formulario de Partner Center (https://partner.microsoft.com/dashboard/microsoftedge). Ajustar antes de enviar si algo no aplica.
 
-## Descripción corta (máx. 132 caracteres)
+Fuente: [Publish a Microsoft Edge extension](https://learn.microsoft.com/en-us/microsoft-edge/extensions-chromium/publish/publish-extension) y [Register as a Microsoft Edge extension developer](https://learn.microsoft.com/en-us/microsoft-edge/extensions-chromium/publish/create-dev-account) (Microsoft Learn).
+
+## Cuenta de desarrollador
+
+- Sin cuota de registro (a diferencia de Chrome Web Store).
+- Requiere una cuenta Microsoft (MSA) — Outlook/Live/Hotmail, o puedes crear una a partir de tu cuenta de GitHub.
+- Registro en https://partner.microsoft.com/dashboard/microsoftedge/public/login → cuenta tipo **Individual** (más rápida de verificar que la de empresa).
+
+## Descripción corta (short description, del manifest o del formulario)
 
 Analiza la URL o el contenido de la página actual con IA y threat intelligence para detectar phishing en tiempo real.
 
-## Descripción larga
+## Descripción larga (mínimo 250, máximo 10.000 caracteres)
 
 AI Phishing Detector analiza, bajo tu control (nunca en segundo plano), la URL de la página que estás viendo o un texto que pegues, y calcula un puntaje de riesgo de 0 a 100 combinando:
 
@@ -25,32 +33,44 @@ Funciones:
 - Historial reciente de análisis
 - 100% bajo demanda: la extensión no analiza páginas automáticamente ni recolecta tu navegación
 
+(Nota: Partner Center también ofrece un botón "Generate with AI" para redactar la descripción a partir del paquete subido — se puede usar como punto de partida y luego editar.)
+
 ## Categoría sugerida
 
-Herramientas / Productividad
+Herramientas de productividad / Seguridad
 
-## Justificación de permisos (para el formulario de Privacy practices)
+## Assets requeridos
+
+| Asset | Requisito | Estado |
+|---|---|---|
+| **Extension logo** (por idioma) | 1:1, recomendado 300×300, mínimo 128×128 | Generar `icon300.png` (ver `scripts/generate_extension_icons.py`) |
+| **Screenshots** | Opcional, máx. 6, tamaño 640×480 o 1280×800 | Pendiente — capturar popup/sidebar en uso |
+| **Small/large promotional tile** | Opcional, 440×280 / 1400×560 | Omitir por ahora |
+
+## Sección Privacy (Single Purpose, permisos, datos, política)
+
+**Single Purpose**: "Analiza, a petición del usuario, la URL de la pestaña activa o un texto pegado, para estimar si corresponde a phishing o contenido no confiable, combinando modelos de IA y servicios de threat intelligence."
+
+**Permission justification** (Partner Center pide una justificación por cada permiso declarado en el manifest):
 
 | Permiso | Justificación |
 |---|---|
-| `activeTab` | Necesario para leer la URL de la pestaña que el usuario decide analizar al pulsar el botón. |
-| `tabs` | Consultar la pestaña activa (`chrome.tabs.query`) para obtener su URL antes de enviarla al backend de análisis. |
+| `activeTab` | Leer la URL de la pestaña activa (vía `chrome.tabs.query`) que el usuario decide analizar al pulsar el botón. |
 | `scripting` | Ejecuta un script en la página activa para extraer su texto visible cuando el usuario usa la pestaña de "Análisis de contenido". |
-| `clipboardRead` | Permite pegar directamente una URL o texto copiado en el panel de análisis, sin que el usuario tenga que teclearlo. |
-| `storage` | Guarda localmente (chrome.storage.sync) la URL del backend y la API key configuradas por el usuario en la página de Opciones. |
+| `clipboardRead` | Permite pegar directamente una URL o texto copiado en el panel de análisis. |
+| `storage` | Guarda localmente (chrome.storage.sync) la URL del backend y la API key configuradas por el usuario en Opciones. |
 | `sidePanel` | Muestra el panel lateral con el análisis detallado (pestañas URL / Contenido). |
 
-## Declaración de datos recolectados (Privacy practices → Data usage)
+**¿Usa código remoto?**: No — todo el código JS está empaquetado en la extensión; el backend solo recibe/devuelve datos (JSON), no envía código ejecutable.
 
-- **Website content** (URL de la página / texto pegado): sí, se envía al backend para el análisis — marcar como "usado para la funcionalidad principal", no compartido con terceros con fines publicitarios.
-- **Personally identifiable information**: no se recolecta.
-- **Health info, financial info, authentication info, location, etc.**: no aplica.
-- **Uso de datos**: solo para proveer la funcionalidad de análisis solicitada por el usuario. No hay analítica de comportamiento, no hay publicidad, no se venden datos.
+**Data usage**: marcar "Website content" (URL/texto analizado) como recolectado, usado únicamente para proveer la funcionalidad principal, no compartido con fines publicitarios ni vendido.
 
-## URL de política de privacidad
+**Privacy Policy URL**: `https://github.com/melsysdev-web/phishing_ia/blob/main/PRIVACY_POLICY.md`
 
-`https://github.com/melsysdev-web/phishing_ia/blob/main/PRIVACY_POLICY.md` (una vez confirmado el push).
+## Availability → Visibility
 
-## Visibilidad
+**Hidden** (equivalente al "Unlisted" de Chrome): no aparece en búsquedas ni al navegar la tienda; solo accesible con el link directo del listado (disponible en el Overview de la extensión en Partner Center). Se puede pasar a "Public" más adelante sin perder usuarios ya instalados.
 
-Unlisted (no listada) — Distribución → Visibility → "Unlisted" en el Developer Dashboard.
+## Proceso de revisión
+
+Hasta 7 días hábiles ("certification"). En **Notes for certification** conviene aclarar que el backend (`https://phishing-ia-2.onrender.com`) puede tardar ~30-60s en la primera respuesta si estuvo inactivo (cold start de Render free tier).

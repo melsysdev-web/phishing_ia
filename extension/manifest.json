@@ -3,7 +3,7 @@
   "name": "AI Phishing Detector",
   "version": "1.0.0",
   "description": "Detecta phishing en tiempo real usando IA + VirusTotal + Google Safe Browsing",
-  "permissions": ["storage", "sidePanel", "clipboardRead", "tabs", "scripting", "activeTab"],
+  "permissions": ["storage", "sidePanel", "clipboardRead", "scripting", "activeTab"],
   "host_permissions": ["http://localhost/*", "https://localhost/*"],
   "icons": {
     "16": "icons/icon16.png",

@@ -10,6 +10,9 @@ from PIL import Image, ImageDraw
 
 OUT_DIR = Path(__file__).resolve().parent.parent / "extension" / "icons"
 SIZES = (16, 48, 128)
+# 300px isn't used by the manifest (Chrome/Edge toolbar icons stop at 128) but
+# is Edge Add-ons' recommended "Extension logo" size for the store listing.
+STORE_LOGO_SIZE = 300
 
 BLUE = (37, 99, 235, 255)
 BLUE_DARK = (29, 78, 216, 255)
@@ -68,6 +71,13 @@ def main() -> None:
         path = OUT_DIR / f"icon{size}.png"
         icon.save(path)
         print(f"wrote {path}")
+
+    store_dir = OUT_DIR.parent.parent / "docs" / "store_assets"
+    store_dir.mkdir(parents=True, exist_ok=True)
+    logo = draw_icon(STORE_LOGO_SIZE)
+    logo_path = store_dir / f"logo{STORE_LOGO_SIZE}.png"
+    logo.save(logo_path)
+    print(f"wrote {logo_path}")
 
 
 if __name__ == "__main__":
