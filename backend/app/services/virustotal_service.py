@@ -7,6 +7,17 @@ from backend.app.core.config import settings
 _API_KEY = settings.virustotal_api_key
 _BASE_URL = "https://www.virustotal.com/api/v3"
 
+# Sesión compartida — reutiliza conexiones TCP/TLS entre requests en vez de
+# renegociar una por cada llamada (requests.get/post crean una Session
+# efímera cada vez internamente).
+_SESSION = requests.Session()
+_SESSION.mount(
+    "https://", requests.adapters.HTTPAdapter(pool_connections=20, pool_maxsize=20)
+)
+_SESSION.mount(
+    "http://", requests.adapters.HTTPAdapter(pool_connections=20, pool_maxsize=20)
+)
+
 
 def _url_id(url: str) -> str:
     return (
@@ -57,7 +68,7 @@ class VirusTotalService:
         }
 
         try:
-            response = requests.get(
+            response = _SESSION.get(
                 f"{_BASE_URL}/urls/{_url_id(url)}",
                 headers=headers,
                 timeout=10,
@@ -92,7 +103,7 @@ class VirusTotalService:
     @staticmethod
     def _submit_and_fetch(url: str, headers: dict) -> dict:
         try:
-            submit = requests.post(
+            submit = _SESSION.post(
                 f"{_BASE_URL}/urls",
                 headers={
                     **headers,
@@ -117,7 +128,7 @@ class VirusTotalService:
             except (KeyError, ValueError, TypeError):
                 return {"error": "VirusTotal: respuesta de envío con formato inesperado"}
 
-            analysis = requests.get(
+            analysis = _SESSION.get(
                 f"{_BASE_URL}/analyses/{analysis_id}",
                 headers=headers,
                 timeout=10,

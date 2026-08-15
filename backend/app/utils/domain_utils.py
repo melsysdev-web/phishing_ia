@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 import tldextract
 import whois
 
+from backend.app.utils import domain_cache
+
 
 def get_domain_info(url: str):
 
@@ -10,9 +12,20 @@ def get_domain_info(url: str):
     domain = f"{extracted.domain}.{extracted.suffix}"
     tld = extracted.suffix  # siempre disponible, independiente del WHOIS
 
+    cached = domain_cache.get(domain)
+    if cached:
+        return cached
+
+    result = _lookup_domain_info(domain, tld)
+    domain_cache.set(domain, result)
+    return result
+
+
+def _lookup_domain_info(domain: str, tld: str):
+
     try:
 
-        w = whois.whois(domain, timeout=10)
+        w = whois.whois(domain, timeout=5)
 
         creation_date = w.creation_date
         expiration_date = w.expiration_date

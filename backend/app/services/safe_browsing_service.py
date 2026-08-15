@@ -7,6 +7,15 @@ _ENDPOINT = (
     "https://safebrowsing.googleapis.com"
     "/v4/threatMatches:find"
 )
+
+_SESSION = requests.Session()
+_SESSION.mount(
+    "https://", requests.adapters.HTTPAdapter(pool_connections=20, pool_maxsize=20)
+)
+_SESSION.mount(
+    "http://", requests.adapters.HTTPAdapter(pool_connections=20, pool_maxsize=20)
+)
+
 _THREAT_TYPES = [
     "MALWARE",
     "SOCIAL_ENGINEERING",
@@ -38,7 +47,7 @@ class SafeBrowsingService:
         }
 
         try:
-            response = requests.post(
+            response = _SESSION.post(
                 _ENDPOINT,
                 params={"key": _API_KEY},
                 json=payload,

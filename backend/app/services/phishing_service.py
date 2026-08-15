@@ -22,6 +22,13 @@ def _safe(fn, *args):
         return {"error": str(exc)}
 
 
+# Compartido entre requests — crear un ThreadPoolExecutor nuevo en cada
+# llamada a analyze() generaba hasta 6 threads por request sin límite
+# agregado bajo carga concurrente. Este pool acota el total y evita el
+# overhead de crear/destruir threads en cada predicción.
+_EXECUTOR = ThreadPoolExecutor(max_workers=32, thread_name_prefix="phishing-io")
+
+
 class PhishingService:
 
     @staticmethod
@@ -51,13 +58,12 @@ class PhishingService:
         }
 
         group1 = {}
-        with ThreadPoolExecutor(max_workers=6) as ex:
-            futures = {
-                ex.submit(_safe, fn, arg): key
-                for key, (fn, arg) in io_tasks.items()
-            }
-            for future in as_completed(futures):
-                group1[futures[future]] = future.result()
+        futures = {
+            _EXECUTOR.submit(_safe, fn, arg): key
+            for key, (fn, arg) in io_tasks.items()
+        }
+        for future in as_completed(futures):
+            group1[futures[future]] = future.result()
 
         domain_info        = group1["domain_info"]
         html_analysis      = group1["html_analysis"]

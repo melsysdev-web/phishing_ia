@@ -12,16 +12,24 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
-from backend.app.api.routes import router
+from backend.app.core import torch_config
 from backend.app.core.config import settings
 from backend.app.core.paths import get_models_dir
-from backend.app.schemas.response_schema import (
+
+# Debe ejecutarse antes de que cualquier import transitivo cargue un modelo
+# torch (routes -> phishing_service -> roberta/model_loader) — los loaders son
+# lazy, pero set_num_interop_threads solo puede llamarse una vez, antes de que
+# arranque trabajo paralelo, así que se hace lo antes posible en el arranque.
+torch_config.configure()
+
+from backend.app.api.routes import router  # noqa: E402
+from backend.app.schemas.response_schema import (  # noqa: E402
     DobleResponse,
     HealthResponse,
     MetadataResponse,
     RootResponse,
 )
-from backend.app.utils import url_cache
+from backend.app.utils import url_cache  # noqa: E402
 
 logger = logging.getLogger("phishing_api")
 

@@ -12,6 +12,17 @@ from backend.app.core import ssrf_guard
 # petición real). Ver backend/app/core/ssrf_guard.py.
 ssrf_guard.install()
 
+# Sesión compartida — reutiliza conexiones entre requests. ssrf_guard.install()
+# parchea urllib3 a nivel de proceso (donde se abre la conexión TCP real), así
+# que la protección SSRF aplica igual con Session que con requests.get suelto.
+_SESSION = requests.Session()
+_SESSION.mount(
+    "https://", requests.adapters.HTTPAdapter(pool_connections=50, pool_maxsize=20)
+)
+_SESSION.mount(
+    "http://", requests.adapters.HTTPAdapter(pool_connections=50, pool_maxsize=20)
+)
+
 _TIMEOUT = 10
 _MAX_REDIRECTS = 5
 _MAX_BYTES = 2 * 1024 * 1024  # 2 MB — evita agotar memoria con respuestas gigantes
@@ -72,7 +83,7 @@ class HtmlFetcher:
                         "html": "",
                     }
 
-                response = requests.get(
+                response = _SESSION.get(
                     current_url,
                     timeout=_TIMEOUT,
                     headers={"User-Agent": "Mozilla/5.0"},

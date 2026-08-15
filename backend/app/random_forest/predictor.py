@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 from .model_loader import get_model
@@ -24,20 +25,20 @@ class RandomForestPredictor:
                 [row]
             )
 
-            prediction = model.predict(
-                df
-            )[0]
-
+            # Un solo predict_proba en vez de predict()+predict_proba() por
+            # separado — predict() internamente vuelve a correr todo el
+            # bosque y hace argmax, así que llamarlo aparte evaluaba el
+            # modelo dos veces por request para nada.
             probabilities = (
                 model.predict_proba(
                     df
                 )[0]
             )
 
+            prediction = int(np.argmax(probabilities))
+
             return {
-                "prediction": int(
-                    prediction
-                ),
+                "prediction": prediction,
                 # model.classes_ is always sorted ascending ([0, 1]), and the
                 # training labels use 0 = phishing, 1 = legitimate (see
                 # datasets/raw/phishing_urls.csv), so predict_proba columns
