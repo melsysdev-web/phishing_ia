@@ -45,7 +45,9 @@ class FusionEngine:
             )
 
         phishing_prob = max(0.0, min(1.0, phishing_prob))
-        prediction = 1 if phishing_prob >= 0.5 else 0
+        # Convención del proyecto: 0 = phishing, 1 = legítimo (ver
+        # random_forest/predictor.py).
+        prediction = 0 if phishing_prob >= 0.5 else 1
 
         return {
             "prediction": prediction,
