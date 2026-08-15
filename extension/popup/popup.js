@@ -95,10 +95,6 @@ function isPositive(text) {
 
 document.addEventListener("DOMContentLoaded", async () => {
 
-  document.getElementById("settingsBtn").addEventListener("click", () => {
-    chrome.runtime.openOptionsPage();
-  });
-
   document.getElementById("clearHistoryBtn").addEventListener("click", clearHistory);
 
   const urlInput  = document.getElementById("urlInput");
@@ -167,7 +163,7 @@ async function analyze(url) {
   } catch (err) {
     showError(
       err.message?.includes("Failed to fetch")
-        ? "No se pudo conectar al servidor. Verifica la URL en ⚙️ Configuración."
+        ? "No se pudo conectar al servidor. Intenta de nuevo en unos minutos."
         : err.message || "Error desconocido."
     );
   } finally {

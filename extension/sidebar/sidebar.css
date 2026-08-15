@@ -34,17 +34,6 @@ body {
 }
 .header-icon  { font-size: 18px; line-height: 1; }
 .header-title { font-size: 13px; font-weight: 600; letter-spacing: 0.03em; flex: 1; }
-.btn-settings {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 16px;
-  padding: 3px 5px;
-  border-radius: 6px;
-  line-height: 1;
-  transition: background 0.15s;
-}
-.btn-settings:hover { background: rgba(255,255,255,0.15); }
 
 /* ── Tabs ── */
 .tabs {
