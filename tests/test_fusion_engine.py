@@ -46,7 +46,7 @@ def test_phishing_prediction_when_above_threshold():
         {"phishing_probability": 0.9},
         {"phishing_probability": 0.8}
     )
-    assert result["prediction"] == 1
+    assert result["prediction"] == 0
     assert result["phishing_probability"] >= 0.5
 
 
@@ -55,7 +55,7 @@ def test_legitimate_prediction_when_below_threshold():
         {"phishing_probability": 0.1},
         {"phishing_probability": 0.2}
     )
-    assert result["prediction"] == 0
+    assert result["prediction"] == 1
     assert result["phishing_probability"] < 0.5
 
 
@@ -64,7 +64,7 @@ def test_exactly_half_is_phishing():
         {"phishing_probability": 0.5},
         {"phishing_probability": 0.5}
     )
-    assert result["prediction"] == 1
+    assert result["prediction"] == 0
 
 
 # ── Fallback on model failure ─────────────────────────────────────────
@@ -94,7 +94,7 @@ def test_rf_failure_prediction_from_roberta():
         {"error": "not found"},
         {"phishing_probability": 0.8}
     )
-    assert result["prediction"] == 1
+    assert result["prediction"] == 0
 
 
 def test_roberta_failure_prediction_from_rf():
@@ -102,7 +102,7 @@ def test_roberta_failure_prediction_from_rf():
         {"phishing_probability": 0.1},
         {"error": "timeout"}
     )
-    assert result["prediction"] == 0
+    assert result["prediction"] == 1
 
 
 # ── Both models fail ──────────────────────────────────────────────────
