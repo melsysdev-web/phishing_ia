@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import requests
 
+from backend.app.services import safe_browsing_service
 from backend.app.services.safe_browsing_service import SafeBrowsingService
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -32,9 +33,7 @@ _MULTI_THREAT         = {"matches": [
 # ── Sin API key ───────────────────────────────────────────────────────────────
 
 def test_no_api_key_returns_error():
-    with patch(
-        "backend.app.services.safe_browsing_service._API_KEY", ""
-    ):
+    with patch.object(safe_browsing_service, "_API_KEY", ""):
         result = SafeBrowsingService.analyze("https://example.com")
     assert "error" in result
 
@@ -42,9 +41,9 @@ def test_no_api_key_returns_error():
 # ── URL limpia ────────────────────────────────────────────────────────────────
 
 def test_clean_url_returns_no_threat():
-    with patch(
-        "backend.app.services.safe_browsing_service._API_KEY", "fake-key"
-    ), patch("requests.post", return_value=_mock_post(200, _CLEAN_RESPONSE)):
+    with patch.object(safe_browsing_service, "_API_KEY", "fake-key"), patch.object(
+        safe_browsing_service._SESSION, "post", return_value=_mock_post(200, _CLEAN_RESPONSE)
+    ):
         result = SafeBrowsingService.analyze("https://google.com")
 
     assert result["is_threat"] is False
@@ -55,9 +54,9 @@ def test_clean_url_returns_no_threat():
 # ── Amenazas detectadas ───────────────────────────────────────────────────────
 
 def test_malware_url_is_dangerous():
-    with patch(
-        "backend.app.services.safe_browsing_service._API_KEY", "fake-key"
-    ), patch("requests.post", return_value=_mock_post(200, _MALWARE_RESPONSE)):
+    with patch.object(safe_browsing_service, "_API_KEY", "fake-key"), patch.object(
+        safe_browsing_service._SESSION, "post", return_value=_mock_post(200, _MALWARE_RESPONSE)
+    ):
         result = SafeBrowsingService.analyze("http://malware-host.xyz/payload.exe")
 
     assert result["is_threat"] is True
@@ -66,9 +65,9 @@ def test_malware_url_is_dangerous():
 
 
 def test_phishing_url_is_dangerous():
-    with patch(
-        "backend.app.services.safe_browsing_service._API_KEY", "fake-key"
-    ), patch("requests.post", return_value=_mock_post(200, _PHISHING_RESPONSE)):
+    with patch.object(safe_browsing_service, "_API_KEY", "fake-key"), patch.object(
+        safe_browsing_service._SESSION, "post", return_value=_mock_post(200, _PHISHING_RESPONSE)
+    ):
         result = SafeBrowsingService.analyze("http://paypal-secure-login.xyz")
 
     assert result["is_threat"] is True
@@ -77,9 +76,9 @@ def test_phishing_url_is_dangerous():
 
 
 def test_unwanted_software_is_suspicious():
-    with patch(
-        "backend.app.services.safe_browsing_service._API_KEY", "fake-key"
-    ), patch("requests.post", return_value=_mock_post(200, _UNWANTED_RESPONSE)):
+    with patch.object(safe_browsing_service, "_API_KEY", "fake-key"), patch.object(
+        safe_browsing_service._SESSION, "post", return_value=_mock_post(200, _UNWANTED_RESPONSE)
+    ):
         result = SafeBrowsingService.analyze("http://adware-bundle.top/install.exe")
 
     assert result["is_threat"] is True
@@ -87,9 +86,9 @@ def test_unwanted_software_is_suspicious():
 
 
 def test_multiple_threats_all_returned():
-    with patch(
-        "backend.app.services.safe_browsing_service._API_KEY", "fake-key"
-    ), patch("requests.post", return_value=_mock_post(200, _MULTI_THREAT)):
+    with patch.object(safe_browsing_service, "_API_KEY", "fake-key"), patch.object(
+        safe_browsing_service._SESSION, "post", return_value=_mock_post(200, _MULTI_THREAT)
+    ):
         result = SafeBrowsingService.analyze("http://very-bad-site.com")
 
     assert len(result["threats"]) == 2
@@ -99,9 +98,9 @@ def test_multiple_threats_all_returned():
 
 
 def test_multi_threat_with_malware_is_dangerous():
-    with patch(
-        "backend.app.services.safe_browsing_service._API_KEY", "fake-key"
-    ), patch("requests.post", return_value=_mock_post(200, _MULTI_THREAT)):
+    with patch.object(safe_browsing_service, "_API_KEY", "fake-key"), patch.object(
+        safe_browsing_service._SESSION, "post", return_value=_mock_post(200, _MULTI_THREAT)
+    ):
         result = SafeBrowsingService.analyze("http://very-bad-site.com")
 
     assert result["verdict"] == "dangerous"
@@ -110,9 +109,9 @@ def test_multi_threat_with_malware_is_dangerous():
 # ── Estructura de amenaza ─────────────────────────────────────────────────────
 
 def test_threat_entry_has_type_and_platform():
-    with patch(
-        "backend.app.services.safe_browsing_service._API_KEY", "fake-key"
-    ), patch("requests.post", return_value=_mock_post(200, _MALWARE_RESPONSE)):
+    with patch.object(safe_browsing_service, "_API_KEY", "fake-key"), patch.object(
+        safe_browsing_service._SESSION, "post", return_value=_mock_post(200, _MALWARE_RESPONSE)
+    ):
         result = SafeBrowsingService.analyze("http://evil.com")
 
     threat = result["threats"][0]
@@ -121,9 +120,9 @@ def test_threat_entry_has_type_and_platform():
 
 
 def test_threat_entry_has_cache_duration():
-    with patch(
-        "backend.app.services.safe_browsing_service._API_KEY", "fake-key"
-    ), patch("requests.post", return_value=_mock_post(200, _MALWARE_RESPONSE)):
+    with patch.object(safe_browsing_service, "_API_KEY", "fake-key"), patch.object(
+        safe_browsing_service._SESSION, "post", return_value=_mock_post(200, _MALWARE_RESPONSE)
+    ):
         result = SafeBrowsingService.analyze("http://evil.com")
 
     assert "cache_duration" in result["threats"][0]
@@ -132,9 +131,9 @@ def test_threat_entry_has_cache_duration():
 # ── Errores HTTP ──────────────────────────────────────────────────────────────
 
 def test_api_error_400_returns_error():
-    with patch(
-        "backend.app.services.safe_browsing_service._API_KEY", "fake-key"
-    ), patch("requests.post", return_value=_mock_post(400)):
+    with patch.object(safe_browsing_service, "_API_KEY", "fake-key"), patch.object(
+        safe_browsing_service._SESSION, "post", return_value=_mock_post(400)
+    ):
         result = SafeBrowsingService.analyze("https://example.com")
 
     assert "error" in result
@@ -142,18 +141,18 @@ def test_api_error_400_returns_error():
 
 
 def test_api_error_403_returns_error():
-    with patch(
-        "backend.app.services.safe_browsing_service._API_KEY", "fake-key"
-    ), patch("requests.post", return_value=_mock_post(403)):
+    with patch.object(safe_browsing_service, "_API_KEY", "fake-key"), patch.object(
+        safe_browsing_service._SESSION, "post", return_value=_mock_post(403)
+    ):
         result = SafeBrowsingService.analyze("https://example.com")
 
     assert "error" in result
 
 
 def test_timeout_returns_error():
-    with patch(
-        "backend.app.services.safe_browsing_service._API_KEY", "fake-key"
-    ), patch("requests.post", side_effect=requests.Timeout):
+    with patch.object(safe_browsing_service, "_API_KEY", "fake-key"), patch.object(
+        safe_browsing_service._SESSION, "post", side_effect=requests.Timeout
+    ):
         result = SafeBrowsingService.analyze("https://example.com")
 
     assert "error" in result
@@ -161,11 +160,10 @@ def test_timeout_returns_error():
 
 
 def test_connection_error_returns_error():
-    with patch(
-        "backend.app.services.safe_browsing_service._API_KEY", "fake-key"
-    ), patch(
-        "requests.post",
-        side_effect=requests.RequestException("Network unreachable")
+    with patch.object(safe_browsing_service, "_API_KEY", "fake-key"), patch.object(
+        safe_browsing_service._SESSION,
+        "post",
+        side_effect=requests.RequestException("Network unreachable"),
     ):
         result = SafeBrowsingService.analyze("https://example.com")
 

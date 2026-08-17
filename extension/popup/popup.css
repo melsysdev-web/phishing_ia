@@ -39,18 +39,6 @@ body {
   color: #e2e8f0;
 }
 
-.btn-settings {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
-  padding: 3px 5px;
-  border-radius: 6px;
-  line-height: 1;
-  transition: background 0.15s;
-}
-.btn-settings:hover { background: rgba(255,255,255,0.1); }
-
 /* ── URL input ── */
 .url-section {
   display: flex;

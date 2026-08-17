@@ -43,7 +43,7 @@ class TestGetHtmlBlocksSSRF:
         assert "esquema" in result["error"].lower()
 
     @patch("backend.app.analyzers.html_fetcher._is_safe_host", return_value=True)
-    @patch("backend.app.analyzers.html_fetcher.requests.get")
+    @patch("backend.app.analyzers.html_fetcher._SESSION.get")
     def test_follows_safe_redirect(self, mock_get, _mock_safe):
         redirect_resp = MagicMock()
         redirect_resp.is_redirect = True
@@ -64,7 +64,7 @@ class TestGetHtmlBlocksSSRF:
         assert result["html"] == "<html>ok</html>"
 
     @patch("backend.app.analyzers.html_fetcher._is_safe_host", return_value=True)
-    @patch("backend.app.analyzers.html_fetcher.requests.get")
+    @patch("backend.app.analyzers.html_fetcher._SESSION.get")
     def test_blocks_redirect_to_unsafe_host(self, mock_get, mock_safe):
         redirect_resp = MagicMock()
         redirect_resp.is_redirect = True
@@ -78,7 +78,7 @@ class TestGetHtmlBlocksSSRF:
         assert result["success"] is False
 
     @patch("backend.app.analyzers.html_fetcher._is_safe_host", return_value=True)
-    @patch("backend.app.analyzers.html_fetcher.requests.get")
+    @patch("backend.app.analyzers.html_fetcher._SESSION.get")
     def test_rejects_response_over_size_limit(self, mock_get, _mock_safe):
         resp = MagicMock()
         resp.is_redirect = False

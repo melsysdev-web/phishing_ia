@@ -7,6 +7,14 @@ from backend.app.core.config import settings
 _API_KEY = settings.fact_check_api_key
 _BASE_URL = "https://factchecktools.googleapis.com/v1alpha1/claims:search"
 
+_SESSION = requests.Session()
+_SESSION.mount(
+    "https://", requests.adapters.HTTPAdapter(pool_connections=20, pool_maxsize=20)
+)
+_SESSION.mount(
+    "http://", requests.adapters.HTTPAdapter(pool_connections=20, pool_maxsize=20)
+)
+
 _NEGATIVE_RATINGS = {
     "false", "mostly false", "fake", "incorrect",
     "misleading", "misinformation", "disinformation",
@@ -48,7 +56,7 @@ class FactCheckService:
         domain = _extract_domain(url)
 
         try:
-            response = requests.get(
+            response = _SESSION.get(
                 _BASE_URL,
                 params={"query": domain, "key": _API_KEY},
                 timeout=10,

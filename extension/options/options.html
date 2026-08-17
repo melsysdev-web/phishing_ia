@@ -20,20 +20,19 @@
 
       <!-- Servidor -->
       <section class="card">
-        <h2 class="card-title">Servidor backend</h2>
+        <h2 class="card-title">Servidor de análisis</h2>
         <p class="card-desc">
-          URL base del servidor FastAPI que ejecutas localmente o en la nube.
-          Se usará en todas las peticiones de análisis.
+          URL del servidor que procesa las peticiones de análisis.
         </p>
 
         <div class="field">
-          <label class="label" for="backendUrl">URL del backend</label>
+          <label class="label" for="backendUrl">URL del servidor</label>
           <div class="input-row">
             <input
               type="url"
               id="backendUrl"
               class="input"
-              placeholder="https://phishing-ia-2.onrender.com"
+              placeholder="https://tu-servidor.ejemplo.com"
               spellcheck="false"
               autocomplete="off"
             />
@@ -48,9 +47,7 @@
       <section class="card">
         <h2 class="card-title">Autenticación</h2>
         <p class="card-desc">
-          Clave de acceso al backend. Debe coincidir con <code>API_KEY</code> en
-          el archivo <code>.env</code> del servidor. Déjala vacía si no
-          configuraste autenticación.
+          Clave de acceso al servidor. Déjala vacía si no aplica.
         </p>
 
         <div class="field">

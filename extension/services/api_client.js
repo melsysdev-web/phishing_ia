@@ -2,7 +2,9 @@ const _DEFAULT_URL = "https://phishing-ia-2.onrender.com";
 
 async function _config() {
   return new Promise(resolve => {
-    chrome.storage.sync.get({ backendUrl: _DEFAULT_URL, apiKey: "" }, resolve);
+    // storage.local, no .sync — evita que la API key viaje a la nube de la
+    // cuenta del navegador junto con las demás preferencias sincronizadas.
+    chrome.storage.local.get({ backendUrl: _DEFAULT_URL, apiKey: "" }, resolve);
   });
 }
 

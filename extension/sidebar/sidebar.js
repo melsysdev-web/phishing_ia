@@ -6,10 +6,6 @@ const VERDICT = {
 
 document.addEventListener("DOMContentLoaded", () => {
 
-  document.getElementById("settingsBtn").addEventListener("click", () => {
-    chrome.runtime.openOptionsPage();
-  });
-
   // ── Pestaña URL ───────────────────────────────────────────────────────────
   const urlInput   = document.getElementById("urlInput");
   const analyzeBtn = document.getElementById("analyzeBtn");
@@ -66,7 +62,7 @@ async function analyze(url) {
   } catch (err) {
     showError(
       err.message?.includes("Failed to fetch")
-        ? "No se pudo conectar al servidor. Verifica la URL en ⚙️ Configuración."
+        ? "No se pudo conectar al servidor. Intenta de nuevo en unos minutos."
         : err.message || "Error desconocido."
     );
   } finally {
@@ -397,7 +393,7 @@ async function analyzeContentText(textarea, btn) {
   } catch (err) {
     showContentError(
       err.message?.includes("Failed to fetch")
-        ? "No se pudo conectar al servidor. Verifica la URL en ⚙️ Configuración."
+        ? "No se pudo conectar al servidor. Intenta de nuevo en unos minutos."
         : err.message || "Error desconocido."
     );
   } finally {

@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import requests
 
+from backend.app.services import virustotal_service
 from backend.app.services.virustotal_service import VirusTotalService
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -70,9 +71,7 @@ _SUBMIT_RESPONSE = {"data": {"id": "analysis-abc123"}}
 # ── Sin API key ───────────────────────────────────────────────────────────────
 
 def test_no_api_key_returns_error():
-    with patch(
-        "backend.app.services.virustotal_service._API_KEY", ""
-    ):
+    with patch.object(virustotal_service, "_API_KEY", ""):
         result = VirusTotalService.analyze("https://example.com")
     assert "error" in result
 
@@ -80,9 +79,9 @@ def test_no_api_key_returns_error():
 # ── URL encontrada (GET 200) ──────────────────────────────────────────────────
 
 def test_clean_url_returns_clean_verdict():
-    with patch(
-        "backend.app.services.virustotal_service._API_KEY", "fake-key"
-    ), patch("requests.get", return_value=_mock_get(200, _STATS_CLEAN)):
+    with patch.object(virustotal_service, "_API_KEY", "fake-key"), patch.object(
+        virustotal_service._SESSION, "get", return_value=_mock_get(200, _STATS_CLEAN)
+    ):
         result = VirusTotalService.analyze("https://google.com")
 
     assert result["verdict"] == "clean"
@@ -90,9 +89,9 @@ def test_clean_url_returns_clean_verdict():
 
 
 def test_malicious_url_returns_malicious_verdict():
-    with patch(
-        "backend.app.services.virustotal_service._API_KEY", "fake-key"
-    ), patch("requests.get", return_value=_mock_get(200, _STATS_MALICIOUS)):
+    with patch.object(virustotal_service, "_API_KEY", "fake-key"), patch.object(
+        virustotal_service._SESSION, "get", return_value=_mock_get(200, _STATS_MALICIOUS)
+    ):
         result = VirusTotalService.analyze("http://evil.xyz/payload")
 
     assert result["verdict"] == "malicious"
@@ -101,9 +100,9 @@ def test_malicious_url_returns_malicious_verdict():
 
 
 def test_suspicious_url_returns_suspicious_verdict():
-    with patch(
-        "backend.app.services.virustotal_service._API_KEY", "fake-key"
-    ), patch("requests.get", return_value=_mock_get(200, _STATS_SUSPICIOUS)):
+    with patch.object(virustotal_service, "_API_KEY", "fake-key"), patch.object(
+        virustotal_service._SESSION, "get", return_value=_mock_get(200, _STATS_SUSPICIOUS)
+    ):
         result = VirusTotalService.analyze("http://suspicious-site.top/login")
 
     assert result["verdict"] == "suspicious"
@@ -115,9 +114,9 @@ def test_three_malicious_engines_is_malicious():
     body = {"data": {"attributes": {"last_analysis_stats": {
         "malicious": 3, "suspicious": 0, "harmless": 60, "undetected": 5
     }}}}
-    with patch(
-        "backend.app.services.virustotal_service._API_KEY", "fake-key"
-    ), patch("requests.get", return_value=_mock_get(200, body)):
+    with patch.object(virustotal_service, "_API_KEY", "fake-key"), patch.object(
+        virustotal_service._SESSION, "get", return_value=_mock_get(200, body)
+    ):
         result = VirusTotalService.analyze("http://borderline.com")
 
     assert result["verdict"] == "malicious"
@@ -127,9 +126,9 @@ def test_two_malicious_engines_is_suspicious():
     body = {"data": {"attributes": {"last_analysis_stats": {
         "malicious": 2, "suspicious": 0, "harmless": 60, "undetected": 5
     }}}}
-    with patch(
-        "backend.app.services.virustotal_service._API_KEY", "fake-key"
-    ), patch("requests.get", return_value=_mock_get(200, body)):
+    with patch.object(virustotal_service, "_API_KEY", "fake-key"), patch.object(
+        virustotal_service._SESSION, "get", return_value=_mock_get(200, body)
+    ):
         result = VirusTotalService.analyze("http://borderline.com")
 
     assert result["verdict"] == "suspicious"
@@ -139,9 +138,9 @@ def test_zero_detections_is_clean():
     body = {"data": {"attributes": {"last_analysis_stats": {
         "malicious": 0, "suspicious": 0, "harmless": 80, "undetected": 5
     }}}}
-    with patch(
-        "backend.app.services.virustotal_service._API_KEY", "fake-key"
-    ), patch("requests.get", return_value=_mock_get(200, body)):
+    with patch.object(virustotal_service, "_API_KEY", "fake-key"), patch.object(
+        virustotal_service._SESSION, "get", return_value=_mock_get(200, body)
+    ):
         result = VirusTotalService.analyze("https://clean-site.com")
 
     assert result["verdict"] == "clean"
@@ -149,58 +148,64 @@ def test_zero_detections_is_clean():
     assert result["is_suspicious"] is False
 
 
-# ── URL no encontrada (GET 404) → submit + fetch ──────────────────────────────
+# ── URL no encontrada (GET 404) → retorna error sin submit ─────────────────────
 
-def test_404_triggers_submission():
+def test_404_returns_error_without_submit():
+    """URLs nuevas (no en VT) no hacen submit, devuelven error."""
     mock_get_404 = _mock_get(404)
-    mock_get_analysis = _mock_get(200, _ANALYSIS_RESPONSE)
-    mock_post_submit = _mock_post(200, _SUBMIT_RESPONSE)
 
-    with patch(
-        "backend.app.services.virustotal_service._API_KEY", "fake-key"
-    ), patch(
-        "requests.get", side_effect=[mock_get_404, mock_get_analysis]
-    ), patch("requests.post", return_value=mock_post_submit):
+    with patch.object(virustotal_service, "_API_KEY", "fake-key"), patch.object(
+        virustotal_service._SESSION, "get", return_value=mock_get_404
+    ) as mock_get, patch.object(
+        virustotal_service._SESSION, "post"
+    ) as mock_post:
         result = VirusTotalService.analyze("https://new-site.com")
 
-    assert "verdict" in result
-    assert result["stats"]["malicious"] == 4
+    # Should not call POST (submit)
+    mock_post.assert_not_called()
+    # Should return error
+    assert "error" in result
+    assert "url_not_in_virustotal" in result["error"]
 
 
-def test_404_submit_failure_returns_error():
+def test_404_submit_not_called():
+    """Verify submit is never called on 404."""
     mock_get_404  = _mock_get(404)
-    mock_post_err = _mock_post(403)
 
-    with patch(
-        "backend.app.services.virustotal_service._API_KEY", "fake-key"
-    ), patch("requests.get", return_value=mock_get_404), \
-       patch("requests.post", return_value=mock_post_err):
-        result = VirusTotalService.analyze("https://new-site.com")
+    with patch.object(virustotal_service, "_API_KEY", "fake-key"), patch.object(
+        virustotal_service._SESSION, "get", return_value=mock_get_404
+    ), patch.object(virustotal_service._SESSION, "post") as mock_post:
+        VirusTotalService.analyze("https://new-site.com")
 
-    assert "error" in result
+    # POST should never be called (no submit)
+    mock_post.assert_not_called()
 
 
-def test_404_analysis_fetch_failure_returns_error():
-    mock_get_404      = _mock_get(404)
-    mock_post_ok      = _mock_post(200, _SUBMIT_RESPONSE)
-    mock_get_analysis = _mock_get(500)
+def test_404_quota_check_before_call():
+    """Verify quota is checked BEFORE making the GET call."""
+    from backend.app.core.quota_circuit import vt_quota
+    mock_get = _mock_get(404)
 
-    with patch(
-        "backend.app.services.virustotal_service._API_KEY", "fake-key"
-    ), patch(
-        "requests.get", side_effect=[mock_get_404, mock_get_analysis]
-    ), patch("requests.post", return_value=mock_post_ok):
-        result = VirusTotalService.analyze("https://new-site.com")
+    vt_quota.tripped = True  # Simulate quota exceeded
 
-    assert "error" in result
+    with patch.object(virustotal_service, "_API_KEY", "fake-key"), patch.object(
+        virustotal_service._SESSION, "get", return_value=mock_get
+    ) as mock_session_get:
+        result = VirusTotalService.analyze("https://example.com")
+
+    # Should return quota error without calling VT
+    assert result["error"] == "quota_exceeded"
+    mock_session_get.assert_not_called()
+
+    vt_quota.tripped = False  # Clean up
 
 
 # ── Errores HTTP ──────────────────────────────────────────────────────────────
 
 def test_server_error_returns_error():
-    with patch(
-        "backend.app.services.virustotal_service._API_KEY", "fake-key"
-    ), patch("requests.get", return_value=_mock_get(500)):
+    with patch.object(virustotal_service, "_API_KEY", "fake-key"), patch.object(
+        virustotal_service._SESSION, "get", return_value=_mock_get(500)
+    ):
         result = VirusTotalService.analyze("https://example.com")
 
     assert "error" in result
@@ -208,9 +213,9 @@ def test_server_error_returns_error():
 
 
 def test_timeout_returns_error():
-    with patch(
-        "backend.app.services.virustotal_service._API_KEY", "fake-key"
-    ), patch("requests.get", side_effect=requests.Timeout):
+    with patch.object(virustotal_service, "_API_KEY", "fake-key"), patch.object(
+        virustotal_service._SESSION, "get", side_effect=requests.Timeout
+    ):
         result = VirusTotalService.analyze("https://example.com")
 
     assert "error" in result
@@ -218,11 +223,10 @@ def test_timeout_returns_error():
 
 
 def test_connection_error_returns_error():
-    with patch(
-        "backend.app.services.virustotal_service._API_KEY", "fake-key"
-    ), patch(
-        "requests.get",
-        side_effect=requests.RequestException("Connection refused")
+    with patch.object(virustotal_service, "_API_KEY", "fake-key"), patch.object(
+        virustotal_service._SESSION,
+        "get",
+        side_effect=requests.RequestException("Connection refused"),
     ):
         result = VirusTotalService.analyze("https://example.com")
 
@@ -232,9 +236,9 @@ def test_connection_error_returns_error():
 # ── Estructura de respuesta ───────────────────────────────────────────────────
 
 def test_response_has_verdict_and_stats():
-    with patch(
-        "backend.app.services.virustotal_service._API_KEY", "fake-key"
-    ), patch("requests.get", return_value=_mock_get(200, _STATS_CLEAN)):
+    with patch.object(virustotal_service, "_API_KEY", "fake-key"), patch.object(
+        virustotal_service._SESSION, "get", return_value=_mock_get(200, _STATS_CLEAN)
+    ):
         result = VirusTotalService.analyze("https://example.com")
 
     assert "verdict" in result
@@ -244,9 +248,9 @@ def test_response_has_verdict_and_stats():
 
 
 def test_total_engines_is_sum_of_all_categories():
-    with patch(
-        "backend.app.services.virustotal_service._API_KEY", "fake-key"
-    ), patch("requests.get", return_value=_mock_get(200, _STATS_CLEAN)):
+    with patch.object(virustotal_service, "_API_KEY", "fake-key"), patch.object(
+        virustotal_service._SESSION, "get", return_value=_mock_get(200, _STATS_CLEAN)
+    ):
         result = VirusTotalService.analyze("https://example.com")
 
     s = result["stats"]

@@ -23,8 +23,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const resetBtn     = document.getElementById("resetBtn");
   const saveFeedback = document.getElementById("saveFeedback");
 
-  // Cargar configuración guardada
-  chrome.storage.sync.get({ backendUrl: DEFAULT_BACKEND, apiKey: "" }, ({ backendUrl, apiKey }) => {
+  // Cargar configuración guardada (storage.local: no se sincroniza a la
+  // cuenta del navegador — la API key es una credencial, no una preferencia).
+  chrome.storage.local.get({ backendUrl: DEFAULT_BACKEND, apiKey: "" }, ({ backendUrl, apiKey }) => {
     backendInput.value = backendUrl;
     apiKeyInput.value  = apiKey;
     checkHttpWarning(backendUrl);
@@ -80,7 +81,7 @@ document.addEventListener("DOMContentLoaded", () => {
       setFeedback(saveFeedback, "Introduce una URL válida.", "err");
       return;
     }
-    chrome.storage.sync.set({ backendUrl: url, apiKey }, () => {
+    chrome.storage.local.set({ backendUrl: url, apiKey }, () => {
       setFeedback(saveFeedback, "✓ Cambios guardados", "ok");
       clearAfter(saveFeedback, 3000);
     });
@@ -91,7 +92,7 @@ document.addEventListener("DOMContentLoaded", () => {
     backendInput.value = DEFAULT_BACKEND;
     apiKeyInput.value  = "";
     checkHttpWarning(DEFAULT_BACKEND);
-    chrome.storage.sync.set({ backendUrl: DEFAULT_BACKEND, apiKey: "" }, () => {
+    chrome.storage.local.set({ backendUrl: DEFAULT_BACKEND, apiKey: "" }, () => {
       setFeedback(saveFeedback, "✓ Restablecido a valores por defecto", "ok");
       clearAfter(saveFeedback, 3000);
     });

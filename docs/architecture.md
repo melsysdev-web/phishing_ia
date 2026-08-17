@@ -131,7 +131,7 @@ flowchart LR
     POP[popup/\npopup.html · popup.css · popup.js\nGauge SVG 0-100]
     SB[sidebar/\nsidebar.html · sidebar.css · sidebar.js\nAnálisis completo]
     OPT[options/\noptions.html · options.css · options.js\nBackend URL]
-    API[services/api_client.js\nlee backendUrl de chrome.storage.sync]
+    API[services/api_client.js\nlee backendUrl de chrome.storage.local]
 
     BG --> POP
     BG --> SB

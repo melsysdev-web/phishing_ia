@@ -89,16 +89,16 @@ Results are cached in-memory (TTL 10 min, max 500 entries) keyed by URL.
 - CORS (`main.py`) uses `allow_origin_regex` (not a static list) to accept any `chrome-extension://` origin plus `localhost`/`127.0.0.1`, extended with `settings.allowed_origins` if set.
 - A global `@app.exception_handler(Exception)` in `main.py` catches unhandled errors, logs the traceback, and returns a 500 with `{"error": ..., "detail": ...}` — `detail` is omitted when `settings.environment == "production"` to avoid leaking internals.
 
-### ML models (`models/`)
+### ML models
 
-| File | Used by |
-|---|---|
-| `random_forest_v2.pkl` | `RandomForestPredictor` — predicts phishing from 34 URL/HTML features |
-| `feature_columns_v2.pkl` | column order for the RF model |
-| `roberta_phishing_new/` | `RobertaPredictor` — fine-tuned `distilroberta-base` on URL strings |
-| `roberta_content/` | `ContentClassifierService` — FAKE/REAL news classifier (falls back to `hamzab/roberta-fake-news-classification` if dir missing) |
+| File | Used by | Versioning |
+|---|---|---|
+| `random_forest_v2.pkl` | `RandomForestPredictor` — predicts phishing from 34 URL/HTML features | HuggingFace Hub |
+| `feature_columns_v2.pkl` | column order for the RF model | HuggingFace Hub |
+| `roberta_phishing_new/` | `RobertaPredictor` — fine-tuned `distilroberta-base` on URL strings | HuggingFace Hub |
+| `roberta_content/` | `ContentClassifierService` — FAKE/REAL news classifier (falls back to `hamzab/roberta-fake-news-classification` if dir missing) | HuggingFace Hub |
 
-All three loaders resolve this directory via `get_models_dir()` in `backend/app/core/paths.py`, which defaults to `<repo root>/models` and can be overridden with the `MODELS_DIR` env var (used by the Docker deployment, see "Deployment" below).
+All three loaders resolve this directory via `get_models_dir()` in `backend/app/core/paths.py`, which defaults to `<repo root>/models` and can be overridden with the `MODELS_DIR` env var (used by the Docker deployment, see "Deployment" below). Model files are versioned on HuggingFace Hub and downloaded/cached on first use.
 
 ### External APIs (env vars in `.env`)
 
@@ -136,17 +136,6 @@ Two UIs share `services/api_client.js`:
 
 `content.js` is a placeholder reserved for future in-page banner injection.
 
-### Standalone fine-tuning module (`phishing_detector/`)
-
-Independent from `backend/app/roberta/` — built around a custom classifier head (not `AutoModelForSequenceClassification`) for full control over the training loop. **Not yet wired into `PhishingService`** — it's a standalone library + CLI for experimenting with a from-scratch fine-tune.
-
-- `model.py` — `PhishingClassifier`: `roberta-base` encoder → pooler `[CLS]` output (768) → `Dropout→Linear(256)→ReLU→Dropout→Linear(2)`. `freeze_encoder()` / `unfreeze_last_n_layers(n)` support gradual fine-tuning.
-- `preprocess.py` — `normalize_url()` decodes percent-encoding and expands hex/octal/decimal IP literals (e.g. `0x7f000001` → `127.0.0.1`); `prepare_input(url, body)` produces `"[URL] {url} [BODY] {text}"`.
-- `dataset.py` — `PhishingDataset` tokenizes the entire text list once in `__init__` (batched), not per-`__getitem__`.
-- `train.py` — `train()`: AdamW + linear warmup (10% of steps) + early stopping (patience 3 on `val_loss`); always returns the model restored to its **best** checkpoint, not the last epoch's weights.
-- `predict.py` — `predict_single`/`predict_batch`; model+tokenizer are lazy-loaded once via `@lru_cache`, mirroring `ContentClassifierService`'s pattern. `predict_single` is a thin wrapper over `predict_batch`.
-- `evaluate.py` — `evaluate_model()` returns precision/recall/F1/AUC-ROC.
-- `scripts/run_training.py` — end-to-end CLI: validates CSV columns (`url,body,label`), splits stratified by label, trains, evaluates.
 
 ### Module layout
 
@@ -181,16 +170,7 @@ backend/app/
 backend/tests/            # Unit tests (url_features, html_features, feature_mapper, risk_engine, html_analyzer, content_classifier)
 tests/                    # Root-level tests + conftest.py (model-loader mocks shared by both test dirs)
 
-phishing_detector/        # standalone module, see above — not wired into backend/
-  config.py              # MAX_LENGTH, BATCH_SIZE, LEARNING_RATE, etc.
-  model.py                # PhishingClassifier (RoBERTa + custom head)
-  preprocess.py            # normalize_url, clean_text, prepare_input
-  dataset.py                # PhishingDataset (batched tokenization)
-  train.py                   # AdamW + warmup + early stopping
-  predict.py                  # predict_single / predict_batch (lazy-loaded)
-  evaluate.py                  # precision/recall/F1/AUC-ROC
-
-training/                  # Random Forest training pipeline (separate from phishing_detector/ and backend/app/roberta/)
+training/                  # Random Forest training pipeline (separate from backend/app/roberta/)
   train_random_forest.py   # requires datasets/raw/phishing_urls.csv → models/random_forest_v2.pkl
   preprocess.py, create_roberta_dataset.py, check_roberta_dataset.py
 
@@ -206,10 +186,10 @@ docs/                      # api.md, architecture.md, decision_tree.md, mvp_scop
 
 - `RiskEngine` starts every URL at a score of **50** and applies positive/negative deltas from each signal. Final range is clamped to 0–100; ≥80 = LOW risk, ≥50 = MEDIUM, <50 = HIGH.
 - `_safe(fn, *args)` in `phishing_service.py` wraps every parallel call; a failed sub-service returns `{"error": "..."}` and never crashes the pipeline.
-- All three model loaders (`random_forest/model_loader.py`, `roberta/model_loader.py`, `ContentClassifierService`) are lazy — load via `@lru_cache`-wrapped `get_model()` on first call, not at import time. This matters: an eager `joblib.load(...)`/`from_pretrained(...)` at module scope would crash the whole app on startup if the model file is missing, instead of just that one signal degrading via `_safe()`.
+- All three model loaders (`random_forest/model_loader.py`, `roberta/model_loader.py`, `ContentClassifierService`) are lazy and download from HuggingFace Hub on first call — load via `@lru_cache`-wrapped `get_model()` on first call, not at import time. Downloaded models are cached locally in `./models`. If internet is unavailable or HuggingFace is unreachable, that signal fails via `_safe()` and doesn't crash the app.
 - `FusionEngine` gracefully degrades: if one model errors, it uses the other at full weight.
-- `ContentClassifierService` is lazy-loaded (via `@lru_cache`) on first call; uses local model dir if `models/roberta_content/config.json` exists, else HuggingFace hub. Inputs under 300 characters short-circuit to a `no_content`/`UNKNOWN`/`0.0` result rather than being run through the model.
-- Label normalization in `ContentClassifierService`: remote model returns `TRUE/FALSE`, local returns `REAL/FAKE` — both are normalized to `REAL/FAKE`.
+- `ContentClassifierService` is lazy-loaded (via `@lru_cache`) on first call; uses HuggingFace model `hamzab/roberta-fake-news-classification` by default. Inputs under 300 characters short-circuit to a `no_content`/`UNKNOWN`/`0.0` result rather than being run through the model.
+- Label normalization in `ContentClassifierService`: model returns `TRUE/FALSE`, normalized to `REAL/FAKE`.
 - The Random Forest expects exactly the columns in `feature_columns_v2.pkl`; `FeatureMapper.map` must produce those keys (missing ones default to 0).
 - `HtmlFetcher.get_html` (`backend/app/analyzers/html_fetcher.py`) has SSRF protections since the URL it fetches is caller-controlled via `/predict`: only `http`/`https` schemes, each hostname is resolved and rejected if any of its IPs is private/loopback/link-local/reserved/multicast/unspecified (blocks localhost, RFC1918, and cloud metadata endpoints like `169.254.169.254`), redirects are followed manually (max 5 hops) with the same host check re-applied on every hop, and the response body is capped at 2 MB. Any change to how the backend fetches attacker-controlled URLs must preserve these checks.
 - The Random Forest's label convention is `0 = phishing, 1 = legitimate`; `RandomForestPredictor` must map `predict_proba` accordingly (`phishing_probability` from class 0, `legitimate_probability` from class 1) — these were previously inverted, silently biasing 40% of the fusion score, so treat this mapping as load-bearing when touching `random_forest/predictor.py`.
@@ -217,26 +197,45 @@ docs/                      # api.md, architecture.md, decision_tree.md, mvp_scop
 - The extension (`popup.js`, `sidebar.js`) builds history and reason-list DOM nodes via safe DOM APIs (`createElement`/`textContent`), not by interpolating URLs or `RiskEngine` reason strings into `innerHTML` — both are attacker-influenceable (the analyzed URL, and text scraped from the analyzed page).
 - When adding new backend tests, put them under `backend/tests/` (not a new top-level dir) so `pyproject.toml`'s `testpaths` and the shared `conftest.py` model mocks pick them up automatically.
 
+## 📚 Full Documentation
+
+- **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** — Pipeline flowchart, RiskEngine scoring, ML models, Chrome extension
+- **[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)** — Step-by-step Render deployment, env vars, troubleshooting
+- **[`docs/TESTING.md`](docs/TESTING.md)** — Test audit results, new test coverage, running tests locally
+- **[`docs/API.md`](docs/API.md)** — Endpoint reference with curl examples
+- **[`docs/changelog.md`](docs/changelog.md)** — Recent changes and versions
+
+---
+
 ## Deployment (Render, Docker)
 
-The backend is deployable independently of the rest of the repo (extension, training scripts, docs). Deploys on Render as a **Docker** web service (Language = Docker in the Render dashboard):
+**→ See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for complete step-by-step guide.**
 
-- **Dockerfile Path** (Render dashboard): `backend/Dockerfile`. Render doesn't auto-detect it because it isn't at the repo root; the build context stays the repo root either way (needed for the `backend.app.*` absolute imports — see below).
-- `backend/Dockerfile` — `python:3.12-slim`; only `backend/requirements.txt` and `backend/app/` are copied in. `CMD` runs `uvicorn` with `--port ${PORT:-8000}` — Render sets `$PORT` (default 10000) and forwards traffic there; a hardcoded port fails Render's health check. Falls back to `8000` for local `docker-compose`, which doesn't set `PORT`.
-- `backend/requirements.txt` — runtime-only deps (no `datasets`/`evaluate`/`accelerate`/`pytest`), pinned to the CPU build of `torch`. The root `requirements.txt` stays the full dev/training environment (CUDA torch) — never used at deploy time.
-- `docker-compose.yml` (repo root) — local way to build/run the image with `./models` bind-mounted read-only and `.env` loaded. `docker compose up backend`, then `curl http://localhost:8000/health`.
-- `.env.example` — template for the env vars Render needs configured in its dashboard (never commit real keys); `.dockerignore` keeps the build context to just what the backend needs.
-- `models/` is not versioned and weighs ~820 MB (`random_forest_v2.pkl` 25 MB + `roberta_phishing_new/` 317 MB + `roberta_content/` 479 MB — training-only `checkpoint-*` subdirs some trainers leave behind are not needed at inference time and should be deleted, not deployed) — locally it's a bind mount (`docker-compose.yml`), but Render's Docker service has no equivalent bind-mount step. `random_forest_v2.pkl`, `roberta_phishing_new/`, `roberta_content/` won't exist on the Render instance unless fetched some other way (e.g. a Render Disk mounted at `/models`, or downloading them during the build). Until that's solved, those signals degrade in a controlled way (`_safe()` in `phishing_service.py`) and `/metadata` reports them as absent — the backend still runs, just without those ML signals.
+Quick summary:
+- Set **Dockerfile path** to `backend/Dockerfile` (Render doesn't auto-detect)
+- Configure env vars: `VIRUSTOTAL_API_KEY`, `SAFE_BROWSING_API_KEY`, `FACT_CHECK_API_KEY`, `API_KEY` (opt), `FORWARDED_ALLOW_IPS=*`, `ENVIRONMENT`
+- Models download from HuggingFace Hub during build (~60-90s cold start)
+- Enable Auto-Deploy on push to `main`
+- Service at `https://<service-name>.onrender.com`
 
 ## Monitoring (Prometheus + Grafana, local only)
 
-`docker-compose.yml` adds `prometheus` and `grafana` services alongside `backend` for local performance visibility — not deployed to Render.
+Local visibility via `docker-compose.yml` (not deployed to Render):
+- `GET /metrics` exposes Prometheus metrics: `http_requests_total`, latency histograms, `app_startup_duration_seconds`
+- `docker compose up -d backend prometheus grafana` starts stack with auto-provisioned dashboard
+- Grafana at `http://localhost:3000`, Prometheus at `http://localhost:9090`
 
-- `GET /metrics` (`backend/app/main.py`) is unauthenticated (like `/health`/`/metadata`) and exposes Prometheus text-format metrics via `prometheus-fastapi-instrumentator`: `http_requests_total`, `http_request_duration_seconds`/`_highr_seconds` (latency histograms), and request/response size histograms, all labeled by `handler`+`status`. `Instrumentator().instrument(app)` is called **after** `RateLimitMiddleware`/`RequestLoggingMiddleware`/`CORSMiddleware` are registered so it ends up outermost in the middleware stack and measures true end-to-end request latency, not just handler time.
-- `app_startup_duration_seconds` (custom `Gauge`, also in `main.py`) is set once in the app's `lifespan` context manager, measured from module import (`_process_start_time`, set at module scope) to FastAPI startup completing. This is a proxy for boot/launch performance — it does **not** include ML model loading, since those loaders are lazy (see `Key conventions`) and only run on first `/predict`/`/analyze-content` call.
-- `prometheus/prometheus.yml` scrapes `backend:8000/metrics` (Compose service-name DNS, not `localhost`) every 5s.
-- `grafana/provisioning/{datasources,dashboards}/` auto-provision a `Prometheus` datasource (`http://prometheus:9090`) and a starter dashboard (`grafana/dashboards/phishing-backend.json`) on container start — no manual UI setup needed. The dashboard has 4 panels: last startup duration, 5xx error rate, request rate by endpoint, p95 latency by endpoint.
-- Run with `docker compose up -d backend prometheus grafana`, then Grafana is at `http://localhost:3000` (`admin`/`admin` — change it if this ever runs anywhere other than localhost) and Prometheus at `http://localhost:9090`.
+## Testing
+
+✅ **281 tests passing** — Unit + integration tests with 100% model mocking (no real model files needed).
+
+**→ See [`docs/TESTING.md`](docs/TESTING.md) for test strategy and audit results (49 new tests added 2026-08-17).**
+
+Key tests:
+- SSRF guard (34): IP validation, DNS-rebinding prevention
+- Rate limiting (7): Proxy headers, bucketing, eviction
+- Security (8): Error filtering, no internals leaking
+- Full pipeline (200+): URL features, HTML analysis, fusion, risk scoring
 
 ## CI (`.github/workflows/ci.yml`)
 
