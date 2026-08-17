@@ -148,45 +148,56 @@ def test_zero_detections_is_clean():
     assert result["is_suspicious"] is False
 
 
-# ── URL no encontrada (GET 404) → submit + fetch ──────────────────────────────
+# ── URL no encontrada (GET 404) → retorna error sin submit ─────────────────────
 
-def test_404_triggers_submission():
+def test_404_returns_error_without_submit():
+    """URLs nuevas (no en VT) no hacen submit, devuelven error."""
     mock_get_404 = _mock_get(404)
-    mock_get_analysis = _mock_get(200, _ANALYSIS_RESPONSE)
-    mock_post_submit = _mock_post(200, _SUBMIT_RESPONSE)
-
-    with patch.object(virustotal_service, "_API_KEY", "fake-key"), patch.object(
-        virustotal_service._SESSION, "get", side_effect=[mock_get_404, mock_get_analysis]
-    ), patch.object(virustotal_service._SESSION, "post", return_value=mock_post_submit):
-        result = VirusTotalService.analyze("https://new-site.com")
-
-    assert "verdict" in result
-    assert result["stats"]["malicious"] == 4
-
-
-def test_404_submit_failure_returns_error():
-    mock_get_404  = _mock_get(404)
-    mock_post_err = _mock_post(403)
 
     with patch.object(virustotal_service, "_API_KEY", "fake-key"), patch.object(
         virustotal_service._SESSION, "get", return_value=mock_get_404
-    ), patch.object(virustotal_service._SESSION, "post", return_value=mock_post_err):
+    ) as mock_get, patch.object(
+        virustotal_service._SESSION, "post"
+    ) as mock_post:
         result = VirusTotalService.analyze("https://new-site.com")
 
+    # Should not call POST (submit)
+    mock_post.assert_not_called()
+    # Should return error
     assert "error" in result
+    assert "url_not_in_virustotal" in result["error"]
 
 
-def test_404_analysis_fetch_failure_returns_error():
-    mock_get_404      = _mock_get(404)
-    mock_post_ok      = _mock_post(200, _SUBMIT_RESPONSE)
-    mock_get_analysis = _mock_get(500)
+def test_404_submit_not_called():
+    """Verify submit is never called on 404."""
+    mock_get_404  = _mock_get(404)
 
     with patch.object(virustotal_service, "_API_KEY", "fake-key"), patch.object(
-        virustotal_service._SESSION, "get", side_effect=[mock_get_404, mock_get_analysis]
-    ), patch.object(virustotal_service._SESSION, "post", return_value=mock_post_ok):
-        result = VirusTotalService.analyze("https://new-site.com")
+        virustotal_service._SESSION, "get", return_value=mock_get_404
+    ), patch.object(virustotal_service._SESSION, "post") as mock_post:
+        VirusTotalService.analyze("https://new-site.com")
 
-    assert "error" in result
+    # POST should never be called (no submit)
+    mock_post.assert_not_called()
+
+
+def test_404_quota_check_before_call():
+    """Verify quota is checked BEFORE making the GET call."""
+    from backend.app.core.quota_circuit import vt_quota
+    mock_get = _mock_get(404)
+
+    vt_quota.tripped = True  # Simulate quota exceeded
+
+    with patch.object(virustotal_service, "_API_KEY", "fake-key"), patch.object(
+        virustotal_service._SESSION, "get", return_value=mock_get
+    ) as mock_session_get:
+        result = VirusTotalService.analyze("https://example.com")
+
+    # Should return quota error without calling VT
+    assert result["error"] == "quota_exceeded"
+    mock_session_get.assert_not_called()
+
+    vt_quota.tripped = False  # Clean up
 
 
 # ── Errores HTTP ──────────────────────────────────────────────────────────────
