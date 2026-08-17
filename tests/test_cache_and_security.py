@@ -326,7 +326,10 @@ def test_metadata_does_not_leak_internal_config():
     data = response.json()
 
     # Verifica que solo expone información necesaria
-    expected_keys = {"api_version", "models", "rate_limit_per_minute", "cache_ttl_seconds", "cache_max_size"}
+    expected_keys = {
+        "api_version", "models", "rate_limit_per_minute",
+        "cache_ttl_seconds", "cache_max_size"
+    }
     assert set(data.keys()) == expected_keys
 
     # No debe exponer rutas internas
@@ -348,7 +351,9 @@ def test_metadata_models_only_boolean_status():
 
     for model_name, model_status in data["models"].items():
         # Cada modelo debe ser un boolean
-        assert isinstance(model_status, bool), f"Model '{model_name}' should be bool, got {type(model_status)}"
+        assert isinstance(model_status, bool), (
+            f"Model '{model_name}' should be bool, got {type(model_status)}"
+        )
 
 
 def test_health_endpoint_generic_response():

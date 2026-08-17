@@ -1,6 +1,5 @@
 """Tests unitarios para ssrf_guard.py — protección contra DNS rebinding."""
 
-import ipaddress
 import socket
 from unittest.mock import MagicMock, patch
 
@@ -321,7 +320,6 @@ class TestIntegration:
 
     def test_requests_session_uses_guard_after_install(self):
         """Después de install(), una sesión requests debe usar el guard."""
-        import requests
         import urllib3.util.connection as urllib3_conn
 
         original = urllib3_conn.create_connection
@@ -329,9 +327,6 @@ class TestIntegration:
         try:
             ssrf_guard._installed = False
             ssrf_guard.install()
-
-            # Crea una sesión
-            session = requests.Session()
 
             # Intenta conectar a loopback (debe fallar)
             with patch("socket.getaddrinfo") as mock_getaddrinfo:

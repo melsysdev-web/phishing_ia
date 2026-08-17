@@ -10,6 +10,7 @@ import sys
 from dataclasses import dataclass
 from typing import List
 
+
 @dataclass
 class TestSuite:
     name: str
@@ -28,25 +29,41 @@ SUITES = [
     TestSuite(
         name="Rate Limiting (7 tests)",
         description="Bucketing by IP, proxy headers (X-Forwarded-For), eviction",
-        command=["python", "-m", "pytest", "tests/test_cache_and_security.py", "-k", "rate_limit", "-v", "--tb=short"],
+        command=[
+            "python", "-m", "pytest", "tests/test_cache_and_security.py",
+            "-k", "rate_limit", "-v", "--tb=short"
+        ],
         critical=True
     ),
     TestSuite(
         name="Security (8 tests)",
         description="Error filtering, no internals leaking, API key safety",
-        command=["python", "-m", "pytest", "tests/test_cache_and_security.py", "-k", "production_error or development_error or metadata or api_key or error_messages", "-v", "--tb=short"],
+        command=[
+            "python", "-m", "pytest", "tests/test_cache_and_security.py",
+            "-k", "production_error or development_error or metadata or api_key"
+            " or error_messages",
+            "-v", "--tb=short"
+        ],
         critical=True
     ),
     TestSuite(
         name="URL Features (12 tests)",
         description="URL string parsing, feature extraction",
-        command=["python", "-m", "pytest", "backend/tests/test_url_features.py", "-v", "--tb=short"],
+        command=[
+            "python", "-m", "pytest", "backend/tests/test_url_features.py",
+            "-v", "--tb=short"
+        ],
         critical=False
     ),
     TestSuite(
         name="HTML Analysis (18 tests)",
         description="HTML fetching, parsing, feature extraction",
-        command=["python", "-m", "pytest", "backend/tests/test_html_features.py", "backend/tests/test_html_fetcher.py", "-v", "--tb=short"],
+        command=[
+            "python", "-m", "pytest",
+            "backend/tests/test_html_features.py",
+            "backend/tests/test_html_fetcher.py",
+            "-v", "--tb=short"
+        ],
         critical=False
     ),
     TestSuite(
@@ -122,10 +139,10 @@ def main():
                 print(f"\n▶ {suite.name}")
                 print(f"  {suite.description}\n")
                 if run_command(suite.command):
-                    print(f"  ✅ PASSED\n")
+                    print("  ✅ PASSED\n")
                     passed += 1
                 else:
-                    print(f"  ❌ FAILED\n")
+                    print("  ❌ FAILED\n")
                     failed += 1
 
             print_header("Results")
@@ -147,10 +164,10 @@ def main():
                 print(f"\n▶ {suite.name}")
                 print(f"  {suite.description}\n")
                 if run_command(suite.command):
-                    print(f"  ✅ PASSED\n")
+                    print("  ✅ PASSED\n")
                     passed += 1
                 else:
-                    print(f"  ❌ FAILED\n")
+                    print("  ❌ FAILED\n")
                     failed += 1
 
             print_header("Results")
