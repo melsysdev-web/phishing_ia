@@ -109,16 +109,42 @@ async function analyze(url) {
 }
 
 function showLoading() {
-  toggle("loadingState", true);
-  toggle("errorState",   false);
-  toggle("results",      false);
+  const loadingEl = document.getElementById("loadingState");
+  const errorEl = document.getElementById("errorState");
+  const resultsEl = document.getElementById("results");
+
+  loadingEl.classList.remove("hidden");
+  errorEl.classList.add("hidden");
+  resultsEl.classList.add("hidden");
+
+  anime.set(loadingEl, { opacity: 0, scale: 0.95 });
+  anime({
+    targets: loadingEl,
+    opacity: [0, 1],
+    scale: [0.95, 1],
+    duration: 400,
+    easing: 'easeOutCubic',
+  });
 }
 
 function showError(msg) {
-  toggle("loadingState", false);
-  toggle("errorState",   true);
-  toggle("results",      false);
+  const loadingEl = document.getElementById("loadingState");
+  const errorEl = document.getElementById("errorState");
+  const resultsEl = document.getElementById("results");
+
+  loadingEl.classList.add("hidden");
+  errorEl.classList.remove("hidden");
+  resultsEl.classList.add("hidden");
   document.getElementById("errorText").textContent = msg;
+
+  anime.set(errorEl, { opacity: 0, scale: 0.95 });
+  anime({
+    targets: errorEl,
+    opacity: [0, 1],
+    scale: [0.95, 1],
+    duration: 400,
+    easing: 'easeOutCubic',
+  });
 }
 
 function toggle(id, visible) {
@@ -152,6 +178,7 @@ function render(data) {
   toggle("errorState",   false);
 
   animateScore(score);
+  animateResultsEntry();
 }
 
 // ─── Veredicto ────────────────────────────────────────────────────────────────
@@ -167,15 +194,23 @@ function renderVerdict(level, score) {
 }
 
 function animateScore(target) {
-  const el    = document.getElementById("scoreNum");
-  const start = performance.now();
-  const dur   = 600;
-  function step(now) {
-    const t = Math.min((now - start) / dur, 1);
-    el.textContent = Math.round(t * target);
-    if (t < 1) requestAnimationFrame(step);
-  }
-  requestAnimationFrame(step);
+  const scoreBar = document.getElementById("scoreBar");
+  const scoreNum = document.getElementById("scoreNum");
+
+  anime.timeline()
+    .add({
+      targets: scoreBar,
+      width: [`0%`, `${target}%`],
+      duration: 900,
+      easing: 'easeInOutCubic',
+    }, 0)
+    .add({
+      targets: scoreNum,
+      innerHTML: [0, target],
+      round: 1,
+      duration: 900,
+      easing: 'easeInOutCubic',
+    }, 0);
 }
 
 // ─── Modelos ML ───────────────────────────────────────────────────────────────
@@ -471,17 +506,124 @@ function renderContentResult(data) {
     : isFake ? "Este texto presenta señales de desinformación."
     : "No fue posible clasificar el contenido.";
 
-  const bar = document.getElementById("contentResultBar");
-  bar.style.width = `${pctVal}%`;
-  bar.className   = `content-bar-fill ${cls}`;
-
-  const pct = document.getElementById("contentResultPct");
-  pct.textContent = `${pctVal}%`;
-  pct.className   = `content-pct ${cls}`;
-
   toggle("contentUncertainBadge", pctVal < 60 && isKnown);
-
   toggle("contentLoadingState", false);
   toggle("contentErrorState",   false);
   toggle("contentResult",       true);
+
+  // Animar con anime.js
+  animateContentResult(pctVal, cls);
+}
+
+function animateContentResult(pctVal, cls) {
+  const contentResult = document.getElementById("contentResult");
+  const contentResultBar = document.getElementById("contentResultBar");
+  const contentResultPct = document.getElementById("contentResultPct");
+  const contentResultIcon = document.getElementById("contentResultIcon");
+
+  anime.set(contentResult, { opacity: 0, scale: 0.95 });
+  anime({
+    targets: contentResult,
+    opacity: [0, 1],
+    scale: [0.95, 1],
+    duration: 500,
+    easing: 'easeOutCubic',
+  });
+
+  anime.set(contentResultIcon, { scale: 0 });
+  anime({
+    targets: contentResultIcon,
+    scale: [0, 1],
+    duration: 600,
+    delay: 200,
+    easing: 'easeOutBack',
+  });
+
+  anime.timeline()
+    .add({
+      targets: contentResultBar,
+      width: [`0%`, `${pctVal}%`],
+      duration: 800,
+      delay: 300,
+      easing: 'easeInOutCubic',
+    }, 0)
+    .add({
+      targets: contentResultPct,
+      innerHTML: [0, pctVal],
+      round: 1,
+      duration: 800,
+      delay: 300,
+      easing: 'easeInOutCubic',
+    }, 0);
+}
+
+// ─── Animaciones con anime.js ─────────────────────────────────────────────────
+
+function animateResultsEntry() {
+  const resultsEl = document.getElementById("results");
+
+  anime.set(resultsEl, { opacity: 0, scale: 0.98 });
+  anime({
+    targets: resultsEl,
+    opacity: [0, 1],
+    scale: [0.98, 1],
+    duration: 500,
+    easing: 'easeOutCubic',
+  });
+
+  // Animar verdict card
+  const verdictCard = document.querySelector(".verdict-card");
+  if (verdictCard) {
+    anime.set(verdictCard, { opacity: 0, translateY: -10 });
+    anime({
+      targets: verdictCard,
+      opacity: [0, 1],
+      translateY: [-10, 0],
+      duration: 500,
+      delay: 100,
+      easing: 'easeOutCubic',
+    });
+  }
+
+  // Animar ML rows con stagger
+  const mlRows = document.querySelectorAll(".ml-row");
+  if (mlRows.length > 0) {
+    anime.set(mlRows, { opacity: 0, translateX: -10 });
+    anime({
+      targets: mlRows,
+      opacity: [0, 1],
+      translateX: [-10, 0],
+      duration: 500,
+      delay: anime.stagger(80, { start: 250 }),
+      easing: 'easeOutCubic',
+    });
+  }
+
+  // Animar intel rows
+  const intelRows = document.querySelectorAll(".intel-row");
+  if (intelRows.length > 0) {
+    anime.set(intelRows, { opacity: 0, translateX: -10 });
+    anime({
+      targets: intelRows,
+      opacity: [0, 1],
+      translateX: [-10, 0],
+      duration: 500,
+      delay: anime.stagger(80, { start: 400 }),
+      easing: 'easeOutCubic',
+    });
+  }
+
+  // Animar reasons
+  const reasonItems = document.querySelectorAll(".reasons-section li");
+  if (reasonItems.length > 0) {
+    anime.set(reasonItems, { opacity: 0, translateX: -10 });
+    anime({
+      targets: reasonItems,
+      opacity: [0, 1],
+      translateX: [-10, 0],
+      duration: 500,
+      delay: anime.stagger(60, { start: 550 }),
+      easing: 'easeOutCubic',
+    });
+  }
 }
