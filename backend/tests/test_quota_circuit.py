@@ -1,9 +1,6 @@
 """Tests para backend/app/core/quota_circuit.py — circuit breaker global."""
 
 from datetime import datetime, timedelta, timezone
-from unittest.mock import patch
-
-import pytest
 
 from backend.app.core.quota_circuit import ApiQuotaCircuit
 

@@ -1,7 +1,6 @@
 """Tests para extended_cache.py — two-layer cache (fast + warm)."""
 
-import tempfile
-from pathlib import Path
+import threading
 from unittest.mock import patch
 
 import pytest
@@ -30,8 +29,6 @@ class TestExtendedCache:
         assert result == data
 
     def test_fast_cache_expires_after_ttl(self):
-        import time
-
         url = "https://example.com"
         data = {"verdict": "clean"}
 
@@ -133,10 +130,10 @@ class TestExtendedCache:
             {"verdict": "suspicious"},
         ]
 
-        for url, data in zip(urls, data_list):
+        for url, data in zip(urls, data_list, strict=True):
             extended_cache.set(url, data)
 
-        for url, data in zip(urls, data_list):
+        for url, data in zip(urls, data_list, strict=True):
             result = extended_cache.get(url)
             assert result == data
 
@@ -147,10 +144,7 @@ class TestExtendedCache:
 
     def test_fast_cache_is_thread_safe(self):
         """Basic thread safety check (real stress test would be more complex)."""
-        import threading
-
         url = "https://example.com"
-        data = {"verdict": "clean"}
 
         def writer():
             for i in range(100):

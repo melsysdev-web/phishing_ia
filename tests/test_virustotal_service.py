@@ -156,7 +156,7 @@ def test_404_returns_error_without_submit():
 
     with patch.object(virustotal_service, "_API_KEY", "fake-key"), patch.object(
         virustotal_service._SESSION, "get", return_value=mock_get_404
-    ) as mock_get, patch.object(
+    ), patch.object(
         virustotal_service._SESSION, "post"
     ) as mock_post:
         result = VirusTotalService.analyze("https://new-site.com")

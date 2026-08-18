@@ -1,11 +1,9 @@
 """Tests para integración de circuit breaker en virustotal_service.py."""
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-import pytest
-
-from backend.app.services.virustotal_service import VirusTotalService
 from backend.app.core.quota_circuit import vt_quota
+from backend.app.services.virustotal_service import VirusTotalService
 
 
 class TestVirusTotalCircuitIntegration:
