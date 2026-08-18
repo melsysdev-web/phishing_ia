@@ -50,6 +50,48 @@ function switchTab(tab) {
   document.getElementById("tabContent").classList.toggle("active", !isUrl);
 }
 
+// ─── Extracción de contenido de página ─────────────────────────────────────────
+
+async function extractFromActivePage() {
+  try {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tabs || tabs.length === 0) {
+      showError("No se pudo obtener la pestaña activa.");
+      return;
+    }
+
+    const tabId = tabs[0].id;
+
+    const result = await chrome.scripting.executeScript({
+      target: { tabId },
+      function: extractMainText,
+    });
+
+    const text = result[0]?.result || "";
+    if (!text) {
+      showError("No se pudo extraer contenido de la página.");
+      return;
+    }
+
+    document.getElementById("contentTextarea").value = text;
+    updateCharCount();
+    showInfo("Contenido extraído exitosamente.");
+  } catch (err) {
+    showError("No se pudo extraer el contenido de la página.");
+    console.error("Extract error:", err);
+  }
+}
+
+// Ejecutado en el contexto de la página (no tiene acceso a extension APIs)
+function extractMainText() {
+  const clone = document.body.cloneNode(true);
+  // Remover scripts y estilos
+  clone.querySelectorAll("script, style, noscript").forEach(el => el.remove());
+  // Extraer texto y limitar a 5000 chars
+  const text = clone.innerText || clone.textContent || "";
+  return text.trim().slice(0, 5000);
+}
+
 // ─── Análisis de URL ──────────────────────────────────────────────────────────
 
 async function analyze(url) {
@@ -60,11 +102,7 @@ async function analyze(url) {
     const data = await ApiClient.analyze(url);
     render(data);
   } catch (err) {
-    showError(
-      err.message?.includes("Failed to fetch")
-        ? "No se pudo conectar al servidor. Intenta de nuevo en unos minutos."
-        : err.message || "Error desconocido."
-    );
+    showError(getErrorMessage(err));
   } finally {
     btn.disabled = false;
   }

@@ -161,11 +161,7 @@ async function analyze(url) {
     saveHistory(url, data);
     renderHistory();
   } catch (err) {
-    showError(
-      err.message?.includes("Failed to fetch")
-        ? "No se pudo conectar al servidor. Intenta de nuevo en unos minutos."
-        : err.message || "Error desconocido."
-    );
+    showError(getErrorMessage(err));
   } finally {
     btn.disabled = false;
   }
