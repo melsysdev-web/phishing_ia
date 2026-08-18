@@ -57,30 +57,9 @@
 
 ## Week 2: Backend Integration + Deployment
 
-### Day 1-2: Redis Caching (3 hours)
+### Day 1-2: Render Deployment (2 hours)
 
-**Task 5: Implement Redis Layer (2.5 hours)**
-- File: `backend/app/utils/cache_manager.py` (NEW)
-- Architecture:
-  - L0: Redis (sub-millisecond, 10 min TTL)
-  - L1: SQLite (warm, 30-day TTL)
-  - L2: Compute (on-demand)
-- Graceful degradation if Redis unavailable
-- Config: `REDIS_URL` env var
-
-**Task 6: Add Redis to Docker Compose (30 min)**
-- Add Jaeger service (already done)
-- Add Redis service
-- Update backend depends_on
-
-**Task 7: Redis Tests (30 min)**
-- Test hit ratio improvement
-- Test fallback to SQLite
-- Test performance: <1ms cache hits
-
-### Day 3-4: Deployment Validation (3 hours)
-
-**Task 8: Render Deployment (2 hours)**
+**Task 5: Render Deployment Setup**
 - Setup Web Service on Render
 - Configure env vars:
   - VIRUSTOTAL_API_KEY
@@ -95,33 +74,44 @@
   - POST /predict → 200
   - GET /metadata → includes model info
 
-**Task 9: Extension Production Config (30 min)**
+**Task 6: Extension Production Config (30 min)**
 - Update default backend URL for production
 - Add Render URL to manifest
 - Test against production backend
 - Update options page backend URL input
 
-**Task 10: OpenTelemetry Integration (30 min)**
+### Day 3: OpenTelemetry Integration (1.5 hours)
+
+**Task 7: OpenTelemetry Integration in main.py**
 - Integrate init_tracing() in main.py
 - Fix test isolation issue
 - Ensure 324 tests pass
 - Document tracing in docker-compose
 
-### Day 5: Final QA + Documentation (2 hours)
+### Day 4: Extension Testing (2 hours)
 
-**Task 11: Full Integration Testing (1 hour)**
+**Task 8: Extension Manual Testing**
+- Test hardcoded URL fix
+- Test extract page button
+- Test error messages
+- Test health checks
+- Test production backend connection
+
+### Day 5: Final QA + Documentation (1.5 hours)
+
+**Task 9: Full Integration Testing (1 hour)**
 - Test full pipeline: Extension → API → ML
-- Verify cache layers working
 - Check performance: P95 <5s
 - Validate error handling
+- Monitor production backend
 
-**Task 12: Documentation + Release Notes (1 hour)**
+**Task 10: Documentation + Release Notes (30 min)**
 - Update README with new features
-- Document Redis setup
 - Create RELEASE_NOTES.md
+- Document Render deployment
 - Update API_OPTIMIZATION.md with results
 
-**Week 2 Backend Total**: ~6 hours
+**Week 2 Backend Total**: ~7 hours
 
 ---
 
@@ -129,29 +119,34 @@
 
 ```
 WEEK 1 (2026-08-18 to 2026-08-24)
-├─ Day 1-2 (Mon-Tue): Extension Critical Fixes (4h)
+├─ Day 1-2 (Mon-Tue): Extension Critical Fixes (4h) ✅ DONE
 │  ├─ Hardcoded URL
 │  ├─ extractFromActivePage()
 │  ├─ Error messages
 │  └─ Health checks
 ├─ Day 3 (Wed): Extension Testing (1h)
-├─ Day 4-5 (Thu-Fri): BUFFER / Backend Polish (2h)
-└─ Total: ~7 hours (DONE: Deprecation + Linting + Tests)
+├─ Day 4-5 (Thu-Fri): Backend Polish (3h) ✅ DONE
+│  ├─ Deprecation warnings
+│  ├─ Linting cleanup
+│  └─ Stress tests + baselines
+└─ Total: ~8 hours (✅ COMPLETED)
 
 WEEK 2 (2026-08-25 to 2026-08-31)
-├─ Day 1-2 (Mon-Tue): Redis Caching (3h)
-│  ├─ cache_manager.py
-│  ├─ Docker compose
-│  └─ Tests
-├─ Day 3-4 (Wed-Thu): Render Deployment (3h)
+├─ Day 1-2 (Mon-Tue): Render Deployment (2h)
 │  ├─ Web Service setup
-│  ├─ Env vars
-│  ├─ Cold start validation
-│  └─ Extension production config
-├─ Day 5 (Fri): QA + Docs (2h)
+│  ├─ Env vars configuration
+│  └─ Cold start validation
+├─ Day 3 (Wed): OpenTelemetry Integration (1.5h)
+│  ├─ Integrate init_tracing() in main.py
+│  ├─ Fix test isolation
+│  └─ Verify tests pass
+├─ Day 4 (Thu): Extension Testing (2h)
+│  ├─ Manual QA all features
+│  └─ Production config
+├─ Day 5 (Fri): QA + Docs (1.5h)
 │  ├─ Integration testing
 │  └─ Release notes
-└─ Total: ~8 hours
+└─ Total: ~7 hours
 ```
 
 ---
@@ -171,11 +166,11 @@ WEEK 2 (2026-08-25 to 2026-08-31)
 
 | Task | Effort | Impact | Status |
 |------|--------|--------|--------|
-| Redis L0 cache | 2.5h | P1 | Ready |
 | Render deployment | 2h | P0 | Ready |
 | Extension prod config | 30m | P0 | Ready |
-| OT integration | 30m | P2 | Ready |
-| QA + Docs | 2h | P2 | Ready |
+| OT integration | 1.5h | P2 | Ready |
+| Extension testing | 2h | P1 | Ready |
+| QA + Docs | 1.5h | P2 | Ready |
 
 ---
 
@@ -204,24 +199,22 @@ WEEK 2 (2026-08-25 to 2026-08-31)
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|-----------|
-| Extension breaks on prod | Low | High | Test against Render URL |
-| Redis connection fails | Low | Low | Graceful fallback to SQLite |
-| Cold start too long | Low | Medium | Monitor, optimize models if needed |
+| Extension breaks on prod | Low | High | Test against Render URL first |
 | OT breaks tests | Medium | Medium | Investigate test isolation before integrating |
-| Render deploy fails | Low | High | Test locally first, use staging |
+| Render deploy fails | Low | High | Test locally first, verify env vars |
+| Cold start too long | Low | Medium | Monitor, check model loading |
 
 ---
 
 ## Rollback Plan
 
 **Week 1 (Extension)**
-- Revert commits if critical issues found
-- Keep old backend URL in branch
+- ✅ All fixes already committed
 
 **Week 2 (Backend)**
-- If Redis breaks: Disable in code, fallback to SQLite
-- If Render fails: Keep backend on localhost
-- If OT fails: Deploy without tracing
+- If OT fails: Deploy without tracing (disable in main.py)
+- If Render fails: Keep backend on localhost, use staging first
+- If extension breaks: Revert to original api_client.js URL
 
 ---
 
