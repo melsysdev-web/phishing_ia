@@ -10,7 +10,6 @@ import json
 import sqlite3
 import threading
 import time
-from datetime import datetime, timedelta
 from pathlib import Path
 
 from backend.app.core.paths import get_models_dir
@@ -57,7 +56,7 @@ def _init_db():
         """)
         conn.commit()
         conn.close()
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         # Silently fail if DB can't be created (e.g., permission issues)
         pass
 
