@@ -259,6 +259,151 @@ feat: add distributed tracing with OpenTelemetry/Jaeger
 
 **Archivo nuevo**: `docs/PERFORMANCE_BASELINES.md`
 
+---
+
+### 📅 Próxima Semana (Extension Fixes)
+
+**Agregar después de Viernes si hay tiempo, o Semana 2**
+
+#### Tarea 7: Extension Critical Fixes (3 horas)
+
+**Contexto**: Chrome extension tiene 13 issues identificados. 4 son críticos.
+
+**P0 - Hardcoded Backend URL (30 min)**
+
+**File**: `extension/services/api_client.js:1`
+
+Current:
+```javascript
+const _DEFAULT_URL = "https://phishing-ia-2.onrender.com";
+```
+
+Fix:
+```javascript
+const _DEFAULT_URL = "http://localhost:8000";
+
+async function _config() {
+  return new Promise(resolve => {
+    chrome.storage.local.get(
+      { backendUrl: _DEFAULT_URL, apiKey: "" },
+      resolve
+    );
+  });
+}
+```
+
+**P1 - Missing extractFromActivePage() Function (45 min)**
+
+**File**: `extension/sidebar/sidebar.js`
+
+Current:
+```javascript
+document.getElementById("extractPageBtn")
+  .addEventListener("click", extractFromActivePage);  // ❌ Function not defined
+```
+
+Fix - Add function:
+```javascript
+async function extractFromActivePage() {
+  try {
+    const tabs = await chrome.tabs.query({
+      active: true,
+      currentWindow: true
+    });
+    const tabId = tabs[0].id;
+
+    const result = await chrome.scripting.executeScript({
+      target: { tabId },
+      function: extractMainText,
+    });
+
+    const text = result[0]?.result || "";
+    document.getElementById("contentTextarea").value = text;
+    updateCharCount();
+  } catch (err) {
+    showError("No se pudo extraer el contenido de la página.");
+  }
+}
+
+function extractMainText() {
+  const clone = document.body.cloneNode(true);
+  clone.querySelectorAll("script, style").forEach(el => el.remove());
+  return clone.innerText.slice(0, 5000);
+}
+```
+
+**Update manifest.json permissions**:
+```json
+"permissions": ["storage", "sidePanel", "clipboardRead", "scripting", "activeTab"]
+```
+
+**P1 - Better Error Messages (30 min)**
+
+**Files**: `popup.js:79`, `sidebar.js`
+
+Add error message mapping:
+```javascript
+const ERROR_MESSAGES = {
+  429: "Demasiadas solicitudes. Espera un minuto.",
+  404: "El servidor no está disponible.",
+  500: "Error en el servidor.",
+  timeout: "La solicitud tomó demasiado tiempo.",
+};
+
+function getErrorMessage(err) {
+  if (err.name === "AbortError") return ERROR_MESSAGES.timeout;
+  const status = err.status || err.statusCode;
+  return ERROR_MESSAGES[status] || err.message || "Error desconocido.";
+}
+```
+
+Update error handlers to use it.
+
+**P1 - Connection Health Check (45 min)**
+
+**New file**: `extension/background/health_check.js`
+
+```javascript
+// Check connection on install
+chrome.runtime.onInstalled.addListener(async () => {
+  try {
+    await ApiClient.testConnection();
+    chrome.storage.local.set({ backendConnected: true });
+  } catch {
+    chrome.storage.local.set({ backendConnected: false });
+  }
+});
+
+// Periodic health check every 5 minutes
+chrome.alarms.create("healthCheck", { periodInMinutes: 5 });
+
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name === "healthCheck") {
+    try {
+      await ApiClient.testConnection();
+      chrome.storage.local.set({ backendConnected: true });
+    } catch {
+      chrome.storage.local.set({ backendConnected: false });
+    }
+  }
+});
+```
+
+Update manifest.json:
+```json
+"permissions": [..., "alarms"]
+```
+
+**Testing**:
+- [ ] Popup: Analyze URL → result displays
+- [ ] Sidebar: Extract page button → text populated
+- [ ] Enter content → analyzes without error
+- [ ] Disable backend → shows user-friendly error
+- [ ] Re-enable backend → works again
+- [ ] Close/reopen popup → history persists
+
+**Commit**: "fix: extension critical issues (hardcoded URL, missing function, error messages, health checks)"
+
 ```markdown
 # Performance Baselines - 2026-08-22
 
