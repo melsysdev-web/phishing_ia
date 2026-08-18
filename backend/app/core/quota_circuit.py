@@ -6,7 +6,7 @@ Prevents cascading failures and alerts operators before quota exhaustion.
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from threading import Lock
 
 logger = logging.getLogger(__name__)
@@ -19,17 +19,17 @@ class ApiQuotaCircuit:
         self.daily_limit = daily_limit
         self.api_name = api_name
         self.call_count = 0
-        self.day_start = datetime.utcnow()
+        self.day_start = datetime.now(timezone.utc)
         self.lock = Lock()
         self.tripped = False
         self.trip_reason = None
 
     def reset_if_new_day(self):
         """Reset counters if day has changed."""
-        if (datetime.utcnow() - self.day_start) >= timedelta(days=1):
+        if (datetime.now(timezone.utc) - self.day_start) >= timedelta(days=1):
             with self.lock:
                 self.call_count = 0
-                self.day_start = datetime.utcnow()
+                self.day_start = datetime.now(timezone.utc)
                 self.tripped = False
                 self.trip_reason = None
                 logger.info(f"{self.api_name} quota reset for new day")

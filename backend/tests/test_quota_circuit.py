@@ -1,6 +1,6 @@
 """Tests para backend/app/core/quota_circuit.py — circuit breaker global."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
@@ -82,7 +82,7 @@ class TestApiQuotaCircuit:
         circuit = ApiQuotaCircuit(daily_limit=100)
         circuit.call_count = 50
         circuit.tripped = True
-        circuit.day_start = datetime.utcnow() - timedelta(days=2)
+        circuit.day_start = datetime.now(timezone.utc) - timedelta(days=2)
 
         circuit.reset_if_new_day()
 
