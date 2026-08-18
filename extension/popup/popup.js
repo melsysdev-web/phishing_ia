@@ -45,7 +45,7 @@ function renderHistory() {
   if (!hist.length) { section.classList.add('hidden'); return; }
 
   list.innerHTML = '';
-  hist.forEach(({ url, score, risk, ts }) => {
+  hist.forEach(({ url, score, risk, ts }, index) => {
     const shortUrl = url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 38);
     const li = document.createElement('li');
     li.className = 'history-item';
@@ -72,6 +72,16 @@ function renderHistory() {
       analyze(url);
     });
     list.appendChild(li);
+
+    anime.set(li, { opacity: 0, translateX: -10 });
+    anime({
+      targets: li,
+      opacity: [0, 1],
+      translateX: [-10, 0],
+      duration: 400,
+      delay: index * 50,
+      easing: 'easeOutCubic',
+    });
   });
   section.classList.remove('hidden');
 }
@@ -185,16 +195,42 @@ async function setBadge(data) {
 }
 
 function showLoading() {
-  toggle("loadingState", true);
-  toggle("errorState",   false);
-  toggle("result",       false);
+  const loadingEl = document.getElementById("loadingState");
+  const errorEl = document.getElementById("errorState");
+  const resultEl = document.getElementById("result");
+
+  loadingEl.classList.remove("hidden");
+  errorEl.classList.add("hidden");
+  resultEl.classList.add("hidden");
+
+  anime.set(loadingEl, { opacity: 0, scale: 0.95 });
+  anime({
+    targets: loadingEl,
+    opacity: [0, 1],
+    scale: [0.95, 1],
+    duration: 400,
+    easing: 'easeOutCubic',
+  });
 }
 
 function showError(msg) {
-  toggle("loadingState", false);
-  toggle("errorState",   true);
-  toggle("result",       false);
+  const loadingEl = document.getElementById("loadingState");
+  const errorEl = document.getElementById("errorState");
+  const resultEl = document.getElementById("result");
+
+  loadingEl.classList.add("hidden");
+  errorEl.classList.remove("hidden");
+  resultEl.classList.add("hidden");
   document.getElementById("errorText").textContent = msg;
+
+  anime.set(errorEl, { opacity: 0, scale: 0.95 });
+  anime({
+    targets: errorEl,
+    opacity: [0, 1],
+    scale: [0.95, 1],
+    duration: 400,
+    easing: 'easeOutCubic',
+  });
 }
 
 function toggle(id, visible) {
@@ -215,14 +251,29 @@ function render(data) {
   document.getElementById("verdictBadge").textContent = v.label;
   document.getElementById("gaugeHint").textContent    = v.hint;
 
-  // Animar rueda
-  const fill = document.getElementById("gaugeFill");
-  fill.style.strokeDashoffset = CIRCUM;
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    fill.style.strokeDashoffset = CIRCUM * (1 - score / 100);
-  }));
+  toggle("result",       true);
+  toggle("loadingState", false);
+  toggle("errorState",   false);
 
-  animateNumber("gaugeNum", score);
+  // Animar rueda con anime.js
+  const fill = document.getElementById("gaugeFill");
+  const gaugeNum = document.getElementById("gaugeNum");
+  fill.style.strokeDashoffset = CIRCUM;
+
+  anime.timeline()
+    .add({
+      targets: fill,
+      strokeDashoffset: [CIRCUM, CIRCUM * (1 - score / 100)],
+      duration: 1200,
+      easing: 'easeInOutCubic',
+    }, 0)
+    .add({
+      targets: gaugeNum,
+      innerHTML: [0, score],
+      round: 1,
+      duration: 1200,
+      easing: 'easeInOutCubic',
+    }, 0);
 
   // Razones (top 4)
   renderReasons(risk.reasons || []);
@@ -230,9 +281,8 @@ function render(data) {
   // Señales
   renderSignals(data);
 
-  toggle("result",       true);
-  toggle("loadingState", false);
-  toggle("errorState",   false);
+  // Animar entrada de resultados
+  animateResultEntry();
 }
 
 function renderReasons(reasons) {
@@ -305,14 +355,98 @@ function _signalML(data) {
   return { label: "ML ✓", status: "ok" };
 }
 
-function animateNumber(id, target) {
-  const el    = document.getElementById(id);
-  const start = performance.now();
-  const dur   = 750;
-  (function step(now) {
-    const t    = Math.min((now - start) / dur, 1);
-    const ease = 1 - Math.pow(1 - t, 3);
-    el.textContent = Math.round(ease * target);
-    if (t < 1) requestAnimationFrame(step);
-  })(performance.now());
+// ─── Animaciones con anime.js ─────────────────────────────────────────────────
+
+function animateResultEntry() {
+  const resultEl = document.getElementById("result");
+
+  // Animar entrada principal
+  anime.set(resultEl, { opacity: 0, scale: 0.95 });
+  anime({
+    targets: resultEl,
+    opacity: [0, 1],
+    scale: [0.95, 1],
+    duration: 400,
+    easing: 'easeOutCubic',
+  });
+
+  // Animar razones con stagger
+  const reasonItems = document.querySelectorAll(".reason-item");
+  if (reasonItems.length > 0) {
+    anime.set(reasonItems, { opacity: 0, translateX: -10 });
+    anime({
+      targets: reasonItems,
+      opacity: [0, 1],
+      translateX: [-10, 0],
+      duration: 500,
+      delay: anime.stagger(80, { start: 200 }),
+      easing: 'easeOutCubic',
+    });
+  }
+
+  // Animar señales con stagger
+  const signalPills = document.querySelectorAll(".signal-pill");
+  if (signalPills.length > 0) {
+    anime.set(signalPills, { opacity: 0, scale: 0.8 });
+    anime({
+      targets: signalPills,
+      opacity: [0, 1],
+      scale: [0.8, 1],
+      duration: 400,
+      delay: anime.stagger(60, { start: 300 }),
+      easing: 'easeOutBack',
+    });
+  }
+
+  // Animar verdict badge
+  const verdictBadge = document.querySelector(".verdict-badge");
+  if (verdictBadge) {
+    anime.set(verdictBadge, { opacity: 0, scale: 0.9 });
+    anime({
+      targets: verdictBadge,
+      opacity: [0, 1],
+      scale: [0.9, 1],
+      duration: 500,
+      delay: 100,
+      easing: 'easeOutBack',
+    });
+  }
+}
+
+function animateStateChange(fromState, toState) {
+  const fromEl = document.getElementById(fromState);
+  const toEl = document.getElementById(toState);
+
+  if (fromEl && !fromEl.classList.contains("hidden")) {
+    anime({
+      targets: fromEl,
+      opacity: [1, 0],
+      scale: [1, 0.95],
+      duration: 300,
+      easing: 'easeInCubic',
+    });
+  }
+
+  if (toEl && toEl.classList.contains("hidden")) {
+    anime.set(toEl, { opacity: 0, scale: 0.95 });
+    anime({
+      targets: toEl,
+      opacity: [0, 1],
+      scale: [0.95, 1],
+      duration: 400,
+      easing: 'easeOutCubic',
+    });
+  }
+}
+
+function animateHistoryEntry(historyItem) {
+  anime.set(historyItem, { opacity: 0, translateX: -15, height: 0 });
+  anime({
+    targets: historyItem,
+    opacity: [0, 1],
+    translateX: [-15, 0],
+    height: 'auto',
+    duration: 400,
+    easing: 'easeOutCubic',
+  });
 }
