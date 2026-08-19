@@ -31,7 +31,9 @@ venv\Scripts\python -m ruff check .
 venv\Scripts\python -m pytest backend/tests/test_risk_engine.py -v
 ```
 
-`tests/conftest.py` patches `backend.app.random_forest.model_loader` and `backend.app.roberta.model_loader` in `sys.modules` **before** any backend code is imported, so the full test suite runs without real `.pkl`/HF model files present. Tests importing `backend.app.main` (e.g. `tests/test_content_api.py`) get this for free as long as conftest loads first (default pytest behavior). It also defines an `autouse` fixture that clears `RateLimitMiddleware`'s `_rate_store` before every test — the limiter buckets by IP only (not by path), so without the reset, tests hitting `/predict`/`/analyze-content` in sequence would trip 429s from earlier tests.
+`tests/conftest.py` patches `backend.app.random_forest.model_loader` and `backend.app.roberta.model_loader` in `sys.modules` **before** any backend code is imported, so the full test suite runs without real `.pkl`/HF model files present. Tests importing `backend.app.main` (e.g. `tests/test_content_api.py`) get this for free as long as conftest loads first (default pytest behavior). It also defines `autouse` fixtures that:
+- Clear `RateLimitMiddleware`'s `_rate_store` before every test — the limiter buckets by IP only (not by path), so without the reset, tests hitting `/predict`/`/analyze-content` in sequence would trip 429s from earlier tests.
+- Reset VirusTotal quota circuit breaker state before every test to prevent state leakage between tests (the circuit is global and affects all VT service calls).
 
 **Quick model smoke test (Random Forest):**
 ```powershell
@@ -187,6 +189,7 @@ docs/                      # api.md, architecture.md, decision_tree.md, mvp_scop
 - `RiskEngine` starts every URL at a score of **50** and applies positive/negative deltas from each signal. Final range is clamped to 0–100; ≥80 = LOW risk, ≥50 = MEDIUM, <50 = HIGH.
 - `_safe(fn, *args)` in `phishing_service.py` wraps every parallel call; a failed sub-service returns `{"error": "..."}` and never crashes the pipeline.
 - All three model loaders (`random_forest/model_loader.py`, `roberta/model_loader.py`, `ContentClassifierService`) are lazy and download from HuggingFace Hub on first call — load via `@lru_cache`-wrapped `get_model()` on first call, not at import time. Downloaded models are cached locally in `./models`. If internet is unavailable or HuggingFace is unreachable, that signal fails via `_safe()` and doesn't crash the app.
+- Model warmup (`backend/app/core/model_warmup.py`) runs on startup only in `ENVIRONMENT=development` to prevent OOM on Render's 512MB limit. In production (`ENVIRONMENT=production`), models load lazily on first request (~30-60s).
 - `FusionEngine` gracefully degrades: if one model errors, it uses the other at full weight.
 - `ContentClassifierService` is lazy-loaded (via `@lru_cache`) on first call; uses HuggingFace model `hamzab/roberta-fake-news-classification` by default. Inputs under 300 characters short-circuit to a `no_content`/`UNKNOWN`/`0.0` result rather than being run through the model.
 - Label normalization in `ContentClassifierService`: model returns `TRUE/FALSE`, normalized to `REAL/FAKE`.
@@ -196,6 +199,18 @@ docs/                      # api.md, architecture.md, decision_tree.md, mvp_scop
 - `get_domain_info` passes `timeout=10` to `whois.whois()` so a slow/unresponsive WHOIS server can't hang the whole `/predict` request.
 - The extension (`popup.js`, `sidebar.js`) builds history and reason-list DOM nodes via safe DOM APIs (`createElement`/`textContent`), not by interpolating URLs or `RiskEngine` reason strings into `innerHTML` — both are attacker-influenceable (the analyzed URL, and text scraped from the analyzed page).
 - When adding new backend tests, put them under `backend/tests/` (not a new top-level dir) so `pyproject.toml`'s `testpaths` and the shared `conftest.py` model mocks pick them up automatically.
+
+## Git Workflow
+
+**All changes must go through feature branches — NEVER commit directly to main.**
+
+1. Create branch: `git checkout -b fix/issue-name` or `feature/issue-name`
+2. Make changes and commit locally
+3. Push to remote: `git push origin branch-name`
+4. Create PR for review
+5. Merge via PR after approval
+
+This ensures all changes are tested in CI before landing on main.
 
 ## 📚 Full Documentation
 
@@ -213,8 +228,12 @@ docs/                      # api.md, architecture.md, decision_tree.md, mvp_scop
 
 Quick summary:
 - Set **Dockerfile path** to `backend/Dockerfile` (Render doesn't auto-detect)
-- Configure env vars: `VIRUSTOTAL_API_KEY`, `SAFE_BROWSING_API_KEY`, `FACT_CHECK_API_KEY`, `API_KEY` (opt), `FORWARDED_ALLOW_IPS=*`, `ENVIRONMENT`
-- Models download from HuggingFace Hub during build (~60-90s cold start)
+- Configure env vars:
+  - `VIRUSTOTAL_API_KEY`, `SAFE_BROWSING_API_KEY`, `FACT_CHECK_API_KEY` — threat-intel APIs
+  - `API_KEY` (optional) — backend authentication key
+  - `ENVIRONMENT` — `production` or `development` (controls model warmup strategy: lazy in production, eager in dev)
+  - `FORWARDED_ALLOW_IPS=*` — allow X-Forwarded-For from Render's proxy
+- Models download from HuggingFace Hub during build (~60-90s cold start); lazy loading on first request in production
 - Enable Auto-Deploy on push to `main`
 - Service at `https://<service-name>.onrender.com`
 
@@ -227,13 +246,14 @@ Local visibility via `docker-compose.yml` (not deployed to Render):
 
 ## Testing
 
-✅ **281 tests passing** — Unit + integration tests with 100% model mocking (no real model files needed).
+✅ **324 tests passing** — Unit + integration tests with 100% model mocking (no real model files needed).
 
 **→ See [`docs/TESTING.md`](docs/TESTING.md) for test strategy and audit results (49 new tests added 2026-08-17).**
 
 Key tests:
 - SSRF guard (34): IP validation, DNS-rebinding prevention
 - Rate limiting (7): Proxy headers, bucketing, eviction
+- VT circuit breaker (9): Quota exhaustion, state reset, graceful degradation
 - Security (8): Error filtering, no internals leaking
 - Full pipeline (200+): URL features, HTML analysis, fusion, risk scoring
 
