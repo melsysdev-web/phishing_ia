@@ -1,37 +1,39 @@
 """
-Model warmup on application startup to prevent OOM errors on Render.
+Optional model warmup strategy based on deployment environment.
 
-Pre-loads all ML models exactly once during app startup, before handling
-any requests. This prevents concurrent model loading which causes memory spikes.
-
-If models are missing (e.g., HuggingFace download failed in Dockerfile build),
-they fall back to lazy loading on first request.
+On Render's free tier (512MB), loading all models (~500MB each) at startup
+causes OOM. Strategy:
+- ENVIRONMENT=development: Eager loading (warmup_models preloads)
+- ENVIRONMENT=production: Pure lazy loading (no warmup, load on first request)
 """
 import logging
+
+from backend.app.core.config import settings
 
 logger = logging.getLogger("phishing_api")
 
 
 def warmup_models():
-    """Pre-load all ML models sequentially during startup.
+    """Skip warmup in production to avoid OOM on Render free tier (512MB).
 
-    This must run ONCE before any requests arrive. Models are cached via
-    @lru_cache, so subsequent calls return instantly from memory.
-
-    Loads in this order (fastest to slowest):
-    1. Random Forest (small pickle file)
-    2. RoBERTa URL classifier (larger transformer model)
-    3. RoBERTa content classifier (larger transformer model)
-
-    If models are missing, they will be downloaded from HuggingFace Hub
-    on first request (lazy loading fallback).
+    In development, pre-load models. In production, rely on lazy loading
+    via @lru_cache in model loaders — first request takes ~30-60s as models
+    download and initialize, but subsequent requests are cached.
     """
-    logger.info("🔄 Warming up ML models during startup...")
+    environment = settings.environment.lower()
+
+    if environment == "production":
+        logger.info(
+            "⚠️  Production mode: using lazy model loading. "
+            "First request will download+initialize models (~30-60s)."
+        )
+        return True
+
+    logger.info("🔄 Development mode: warming up ML models during startup...")
 
     loaded_count = 0
     failed_models = []
 
-    # 1. Random Forest — fast, small file
     try:
         logger.info("  → Loading Random Forest...")
         from backend.app.random_forest.predictor import RandomForestPredictor
@@ -42,7 +44,6 @@ def warmup_models():
         logger.warning(f"  ✗ Random Forest failed: {e}")
         failed_models.append("Random Forest")
 
-    # 2. RoBERTa URL classifier — medium, ~500MB
     try:
         logger.info("  → Loading RoBERTa URL classifier...")
         from backend.app.roberta.predictor import RobertaPredictor
@@ -53,7 +54,6 @@ def warmup_models():
         logger.warning(f"  ✗ RoBERTa URL classifier failed: {e}")
         failed_models.append("RoBERTa URL")
 
-    # 3. Content classifier — medium, ~500MB
     try:
         logger.info("  → Loading content classifier...")
         from backend.app.roberta.content_classifier_service import ContentClassifierService
@@ -64,16 +64,12 @@ def warmup_models():
         logger.warning(f"  ✗ Content classifier failed: {e}")
         failed_models.append("Content classifier")
 
-    # Summary
     if loaded_count == 3:
         logger.info("✅ All 3 ML models warmed up successfully")
-        return True
     elif loaded_count > 0:
         missing = ", ".join(failed_models)
-        logger.warning(f"⚠️  Warmup partial: {loaded_count}/3 loaded. Missing: {missing}")
-        logger.warning("    Models will load lazily from HuggingFace Hub on first request")
-        return True
+        logger.warning(f"⚠️  Warmup partial: {loaded_count}/3. Missing: {missing}")
     else:
         logger.warning("⚠️  All models failed to load during warmup")
-        logger.warning("    Models will load lazily from HuggingFace Hub on first request")
-        return True
+
+    return True
