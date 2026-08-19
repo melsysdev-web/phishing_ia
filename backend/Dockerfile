@@ -24,7 +24,30 @@ RUN pip install --no-cache-dir -r backend/requirements.txt \
 # (Render free tier no ofrece disco persistente), asi que se descargan desde el
 # repo publico de Hugging Face Hub durante el build y quedan horneados en la
 # imagen. Repo: https://huggingface.co/mel3601/phishing-ia-models
-RUN python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='mel3601/phishing-ia-models', local_dir='/models')"
+#
+# Si la descarga falla en el build (timeout, red, etc), el warmup.py manejará
+# gracefully la carga lazy en el primer request.
+RUN mkdir -p /models && python << 'EOF'
+import os
+import sys
+from huggingface_hub import snapshot_download
+
+os.makedirs('/models', exist_ok=True)
+try:
+    print("[*] Downloading ML models from HuggingFace Hub...")
+    snapshot_download(
+        repo_id='mel3601/phishing-ia-models',
+        local_dir='/models',
+        repo_type='model',
+        resume_download=True,
+        max_workers=1
+    )
+    print("[+] Models downloaded successfully")
+except Exception as e:
+    print(f"[-] Model download failed: {e}")
+    print("[*] Models will be downloaded lazily at startup")
+    sys.exit(0)
+EOF
 
 COPY backend/__init__.py backend/__init__.py
 COPY backend/app backend/app
