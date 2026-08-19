@@ -16,7 +16,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY backend/requirements.txt backend/requirements.txt
 RUN pip install --no-cache-dir -r backend/requirements.txt \
-    --extra-index-url https://download.pytorch.org/whl/cpu
+    --extra-index-url https://download.pytorch.org/whl/cpu \
+    --no-build-isolation
 
 # Los pesos (~821MB: random_forest_v2.pkl, roberta_phishing_new/, roberta_content/)
 # no viven en el repo (models/ esta en .gitignore) ni en un volumen persistente
