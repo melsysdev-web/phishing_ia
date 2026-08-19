@@ -66,6 +66,18 @@ def _reset_rate_limiter():
     yield
 
 
+@pytest.fixture(autouse=True)
+def _reset_vt_quota_circuit():
+    """Reset VirusTotal quota circuit breaker before each test to prevent
+    state leakage between tests. The circuit is global and affects all VT
+    service calls, so it must be clean for each test."""
+    from backend.app.core.quota_circuit import vt_quota
+    vt_quota.call_count = 0
+    vt_quota.tripped = False
+    vt_quota.trip_reason = None
+    yield
+
+
 @pytest.fixture
 def safe_url():
     return "https://www.google.com"
