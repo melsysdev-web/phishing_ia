@@ -14,6 +14,7 @@ from starlette.requests import Request
 
 from backend.app.core import torch_config
 from backend.app.core.config import settings
+from backend.app.core.model_warmup import warmup_models
 from backend.app.core.paths import get_models_dir
 
 # Debe ejecutarse antes de que cualquier import transitivo cargue un modelo
@@ -46,6 +47,8 @@ app_startup_seconds = Gauge(
 
 @asynccontextmanager
 async def _lifespan(_: FastAPI):
+    # Warm up ML models on startup to prevent OOM on concurrent requests
+    warmup_models()
     app_startup_seconds.set(time.time() - _process_start_time)
     yield
 
