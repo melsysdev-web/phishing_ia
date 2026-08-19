@@ -34,6 +34,7 @@ venv\Scripts\python backend/app/roberta/content_trainer.py  # Content classifier
 **Notas**:
 - `tests/conftest.py` mocka los loaders de ML antes de importar → suite completa sin archivos `.pkl` reales
 - `models/` no está versionado (`.gitignore`); modelos descargan de HuggingFace Hub en primer uso
+- **Warmup de modelos**: En `ENVIRONMENT=development`, pre-carga modelos al startup. En `ENVIRONMENT=production` (Render), lazy loading en primer request (~30-60s) para evitar OOM en el límite de 512MB
 - Fallos de modelos degrada gracefully via `_safe()` wrapper — nunca rompe el pipeline
 
 ---
@@ -88,11 +89,28 @@ Cache en memoria: TTL 10 min, máx 500 URLs.
 
 ---
 
+## 🌿 Git Workflow
+
+**NUNCA commit directo a main. SIEMPRE usar feature branches.**
+
+1. `git checkout -b fix/issue-name` o `feature/issue-name`
+2. Hacer cambios y commit local
+3. `git push origin branch-name`
+4. Crear PR para review
+5. Merge via PR después de aprobación
+
+Esto asegura que todos los cambios pasen CI antes de llegar a main.
+
+---
+
 ## 🧪 Testing & CI
 
-✅ **324 tests**: Todos passing (incluido 9 VT circuit breaker tests)
+✅ **324 tests**: Todos passing
 
-- **Suite**: `pytest` (conftest mocks todos los modelos + resets circuit breaker)
+- **Suite**: `pytest` con conftest que:
+  - Mocka todos los modelos ML
+  - Reseta rate limiter por test
+  - Reseta circuit breaker VirusTotal por test (evita state leakage)
 - **Linting**: `ruff check .` (line-length 100)
 - **CI** (`.github/workflows/ci.yml`): Python 3.12, CPU torch, no secrets needed
 
@@ -104,8 +122,12 @@ Cache en memoria: TTL 10 min, máx 500 URLs.
 
 Quick:
 - Dockerfile path: `backend/Dockerfile`
-- Env vars: `VIRUSTOTAL_API_KEY`, `SAFE_BROWSING_API_KEY`, `FACT_CHECK_API_KEY`, `API_KEY` (opt), `ENVIRONMENT`, `FORWARDED_ALLOW_IPS=*`
-- Models descargan HF Hub en build (~60-90s)
+- Env vars:
+  - `VIRUSTOTAL_API_KEY`, `SAFE_BROWSING_API_KEY`, `FACT_CHECK_API_KEY` — threat-intel APIs
+  - `API_KEY` (opt) — autenticación backend
+  - `ENVIRONMENT` — `production` o `development` (controla warmup: lazy en prod, eager en dev)
+  - `FORWARDED_ALLOW_IPS=*` — permitir X-Forwarded-For del proxy de Render
+- Models descargan HF Hub en build (~60-90s); lazy loading en primer request en producción
 - Auto-Deploy en push `main`
 
 ---
