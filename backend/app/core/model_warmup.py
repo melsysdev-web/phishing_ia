@@ -69,7 +69,8 @@ def warmup_models():
         logger.info("✅ All 3 ML models warmed up successfully")
         return True
     elif loaded_count > 0:
-        logger.warning(f"⚠️  Warmup partial: {loaded_count}/3 loaded. Missing: {', '.join(failed_models)}")
+        missing = ", ".join(failed_models)
+        logger.warning(f"⚠️  Warmup partial: {loaded_count}/3 loaded. Missing: {missing}")
         logger.warning("    Models will load lazily from HuggingFace Hub on first request")
         return True
     else:
