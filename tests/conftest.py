@@ -2,12 +2,18 @@
 Patches ML model loaders via sys.modules before any backend code is imported.
 conftest.py is loaded first by pytest, so these patches apply to all test files.
 """
+import os
 import sys
 from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
 import torch
+
+# Set test API keys before any backend modules import settings
+os.environ.setdefault('VIRUSTOTAL_API_KEY', 'test_vt_key_12345')
+os.environ.setdefault('SAFE_BROWSING_API_KEY', 'test_sb_key_12345')
+os.environ.setdefault('FACT_CHECK_API_KEY', 'test_fc_key_12345')
 
 # ─────────────────────────────────────────────
 # Mock: Random Forest model loader
