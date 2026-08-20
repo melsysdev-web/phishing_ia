@@ -225,6 +225,18 @@ venv\Scripts\python -m backend.app.random_forest.test_predict
 
 ## Documentación
 
+### Base del proyecto
+
+| Documento | Descripción |
+|---|---|
+| [`docs/mvp_scope.md`](docs/mvp_scope.md) | Alcance, objetivos y qué queda dentro y fuera |
+| [`docs/user_stories.md`](docs/user_stories.md) | Historias de usuario con criterios de aceptación |
+| [`docs/decision_tree.md`](docs/decision_tree.md) | Lógica de puntuación del RiskEngine: cada delta, atenuaciones y salida calibrada |
+| [`docs/testing_report.md`](docs/testing_report.md) | Casos de prueba manuales y cobertura de la suite automatizada |
+| [`docs/presentacion.md`](docs/presentacion.md) | Presentación del proyecto con FAQ |
+
+### Referencia técnica
+
 | Documento | Descripción |
 |---|---|
 | [`docs/api.md`](docs/api.md) | Contrato de la API: endpoints, request/response, ejemplos curl, códigos de error |

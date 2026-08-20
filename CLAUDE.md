@@ -186,8 +186,11 @@ scripts/
   test_phishing_url.py         # ad-hoc single-URL check against phishing_detector/
   augment_roberta_dataset.py    # dataset augmentation for the RoBERTa URL trainer
 
-docs/                      # api.md, architecture.md, changelog.md, DEPLOYMENT.md, TESTING.md,
-                           # EXTENSION_STABILITY.md, EDGE_ADDON_UPLOAD.md, EDGE_STORE_DESCRIPTIONS.md
+docs/                      # Base del proyecto: mvp_scope.md, user_stories.md, decision_tree.md,
+                           #   testing_report.md, presentacion.md
+                           # Referencia técnica: api.md, architecture.md, changelog.md,
+                           #   DEPLOYMENT.md, TESTING.md, EXTENSION_STABILITY.md
+                           # Publicación: EDGE_ADDON_UPLOAD.md, EDGE_STORE_DESCRIPTIONS.md
 ```
 
 ## Key conventions
@@ -225,6 +228,16 @@ docs/                      # api.md, architecture.md, changelog.md, DEPLOYMENT.m
 This ensures all changes are tested in CI before landing on main.
 
 ## 📚 Full Documentation
+
+**Project basis** — what the project set out to do and how it is judged. Keep these in sync when behaviour changes:
+
+- **[`docs/mvp_scope.md`](docs/mvp_scope.md)** — Scope, objectives, what is in and out
+- **[`docs/user_stories.md`](docs/user_stories.md)** — User stories with acceptance criteria
+- **[`docs/decision_tree.md`](docs/decision_tree.md)** — Every RiskEngine delta, the damping rules and the calibrated output. **Update this whenever a score delta changes.**
+- **[`docs/testing_report.md`](docs/testing_report.md)** — Manual test cases plus what the automated suite covers
+- **[`docs/presentacion.md`](docs/presentacion.md)** — Project presentation and FAQ
+
+**Technical reference:**
 
 - **[`docs/architecture.md`](docs/architecture.md)** — Pipeline flowchart, RiskEngine scoring, ML models, Chrome extension
 - **[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)** — Step-by-step Render deployment, env vars, troubleshooting
