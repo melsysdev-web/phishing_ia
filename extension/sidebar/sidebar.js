@@ -45,6 +45,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (tabUrl) tabUrl.addEventListener("click", () => switchTab("url"));
     if (tabContent) tabContent.addEventListener("click", () => switchTab("content"));
+
+    const feedbackSafe = safeGetElement("feedbackSafe");
+    const feedbackPhishing = safeGetElement("feedbackPhishing");
+    if (feedbackSafe) feedbackSafe.addEventListener("click", () => sendFeedback("LOW"));
+    if (feedbackPhishing) feedbackPhishing.addEventListener("click", () => sendFeedback("HIGH"));
   } catch (err) {
     console.error('Error en sidebar DOMContentLoaded:', err);
   }
@@ -167,6 +172,43 @@ function toggle(id, visible) {
   document.getElementById(id).classList.toggle("hidden", !visible);
 }
 
+// ─── Feedback del usuario ─────────────────────────────────────────────────────
+
+// Último análisis mostrado, para poder atribuir la corrección al veredicto
+// concreto (y a la variante de scoring) que la generó.
+let _lastAnalysis = null;
+
+function renderFeedbackPrompt() {
+  const section = safeGetElement("feedbackSection");
+  const status = safeGetElement("feedbackStatus");
+  if (!section) return;
+  if (status) status.textContent = "";
+  section.classList.remove("hidden");
+  ["feedbackSafe", "feedbackPhishing"].forEach(id => {
+    const btn = safeGetElement(id);
+    if (btn) btn.disabled = false;
+  });
+}
+
+async function sendFeedback(reportedRisk) {
+  if (!_lastAnalysis?.url || !_lastAnalysis?.predictedRisk) return;
+
+  const status = safeGetElement("feedbackStatus");
+  const buttons = ["feedbackSafe", "feedbackPhishing"].map(safeGetElement);
+  buttons.forEach(btn => { if (btn) btn.disabled = true; });
+  if (status) status.textContent = "Enviando…";
+
+  try {
+    await ApiClient.submitFeedback({ ..._lastAnalysis, reportedRisk });
+    if (status) status.textContent = "Gracias, tu corrección fue registrada.";
+  } catch (err) {
+    // El feedback es opcional: si falla, no se interrumpe el análisis mostrado.
+    if (status) status.textContent = "No se pudo enviar la corrección.";
+    buttons.forEach(btn => { if (btn) btn.disabled = false; });
+    console.warn("Feedback no enviado:", err);
+  }
+}
+
 // ─── Render principal ─────────────────────────────────────────────────────────
 
 function render(data) {
@@ -184,7 +226,16 @@ function render(data) {
 
     safeGetElement("results").className = `results ${level}`;
 
-    renderVerdict(level, score);
+    _lastAnalysis = {
+      url: data.url,
+      predictedRisk: risk.risk,
+      predictedScore: score,
+      confidence: risk.confidence,
+      variant: data.scoring_variant,
+    };
+
+    renderVerdict(level, score, risk);
+    renderFeedbackPrompt();
     renderML(ml);
     renderThreatIntel(vt, sb, fc);
     renderContent(content);
@@ -204,7 +255,7 @@ function render(data) {
 
 // ─── Veredicto ────────────────────────────────────────────────────────────────
 
-function renderVerdict(level, score) {
+function renderVerdict(level, score, risk) {
   try {
     const v    = VERDICT[level] || VERDICT.high;
     const card = safeGetElement("verdictCard");
@@ -214,9 +265,30 @@ function renderVerdict(level, score) {
     safeGetElement("verdictText").textContent  = v.text;
     const scoreBar = safeGetElement("scoreBar");
     if (scoreBar && scoreBar.style) scoreBar.style.width = `${score}%`;
+    renderConfidence(risk);
   } catch (err) {
     console.error('Error en renderVerdict:', err);
   }
+}
+
+// El backend puede omitir la calibración (respuestas cacheadas por versiones
+// anteriores), en cuyo caso no se muestra nada en lugar de inventar un valor.
+function renderConfidence(risk) {
+  const el = safeGetElement("verdictConfidence");
+  if (!el) return;
+  const confidence = risk?.confidence;
+  if (typeof confidence !== "number") {
+    el.textContent = "";
+    el.classList.add("hidden");
+    return;
+  }
+  const pct = Math.round(confidence * 100);
+  const interval = risk?.score_interval;
+  const range = interval && typeof interval.lower === "number"
+    ? ` · rango ${interval.lower}–${interval.upper}`
+    : "";
+  el.textContent = `Confianza ${pct}%${range}`;
+  el.className = `verdict-confidence ${pct < 60 ? "low" : ""}`;
 }
 
 function animateScore(target) {

@@ -23,7 +23,14 @@ def extract_url_features(url: str):
 
         "num_dots": url.count("."),
 
+        # Guiones en toda la URL. Lo consume el Random Forest como NumHyphens;
+        # no cambiar su definición sin reentrenar el modelo.
         "num_hyphens": url.count("-"),
+
+        # Guiones sólo en el hostname. Los del path son ruido (cada slug de
+        # noticia o blog los usa); los del dominio son la señal real, porque
+        # el phishing registra nombres como paypal-secure-login-verify.com.
+        "num_hyphens_domain": hostname.count("-"),
 
         "num_slashes": url.count("/"),
 

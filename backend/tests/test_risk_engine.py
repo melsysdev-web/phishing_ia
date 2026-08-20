@@ -77,12 +77,20 @@ class TestRiskEngineUrlSignals:
         )
         assert many["score"] < few["score"]
 
-    def test_excessive_hyphens_reduce_score(self):
+    def test_excessive_domain_hyphens_reduce_score(self):
         hyphens = RiskEngine.calculate(
-            {**_SAFE_FEATS, "num_hyphens": 5}, _EMPTY_DOMAIN
+            {**_SAFE_FEATS, "num_hyphens_domain": 5}, _EMPTY_DOMAIN
         )
         clean = RiskEngine.calculate(_SAFE_FEATS, _EMPTY_DOMAIN)
         assert hyphens["score"] < clean["score"]
+
+    def test_path_hyphens_do_not_reduce_score(self):
+        """Los slugs de noticias y documentación usan guiones y son legítimos."""
+        path_hyphens = RiskEngine.calculate(
+            {**_SAFE_FEATS, "num_hyphens": 9, "num_hyphens_domain": 0}, _EMPTY_DOMAIN
+        )
+        clean = RiskEngine.calculate(_SAFE_FEATS, _EMPTY_DOMAIN)
+        assert path_hyphens["score"] == clean["score"]
 
     def test_url_shortener_reduces_score(self):
         short = RiskEngine.calculate(

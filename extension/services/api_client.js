@@ -69,6 +69,37 @@ const ApiClient = {
     }
   },
 
+  // Reporta que un veredicto fue incorrecto. La URL viaja para que el backend
+  // la hashee; nunca se persiste en claro.
+  async submitFeedback({ url, predictedRisk, predictedScore, reportedRisk, confidence, variant }) {
+    const { backendUrl, apiKey } = await _config();
+    const base = backendUrl.replace(/\/$/, "");
+    const body = {
+      url,
+      predicted_risk: predictedRisk,
+      predicted_score: predictedScore,
+      reported_risk: reportedRisk,
+    };
+    if (typeof confidence === "number") body.confidence = confidence;
+    if (variant) body.variant = variant;
+
+    try {
+      const res = await fetch(`${base}/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!res.ok) throw new Error(`Error del servidor: ${res.status}`);
+      return res.json();
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        throw new Error('Tiempo de espera agotado');
+      }
+      throw err;
+    }
+  },
+
   async testConnection() {
     const { backendUrl } = await _config();
     const base = backendUrl.replace(/\/$/, "");

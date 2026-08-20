@@ -1,14 +1,19 @@
 from fastapi import APIRouter, Depends
 
+from backend.app.core import experiment
 from backend.app.core.security import require_api_key
-from backend.app.schemas.request_schema import TextRequest, UrlRequest
+from backend.app.schemas.request_schema import FeedbackRequest, TextRequest, UrlRequest
 from backend.app.schemas.response_schema import (
     CacheClearResponse,
     CacheStatsResponse,
     ContentAnalysisResponse,
     ErrorResponse,
+    ExperimentStatusResponse,
+    FeedbackResponse,
+    FeedbackStatsResponse,
     PredictResponse,
 )
+from backend.app.services import feedback_store
 from backend.app.services.content_classifier_service import ContentClassifierService
 from backend.app.services.phishing_service import PhishingService
 from backend.app.utils import url_cache
@@ -41,6 +46,58 @@ def predict(request: UrlRequest):
 )
 def analyze_content(request: TextRequest):
     return ContentClassifierService.analyze(request.text)
+
+
+@router.post(
+    "/feedback",
+    response_model=FeedbackResponse,
+    tags=["Feedback"],
+    summary="Reportar un veredicto incorrecto",
+    description=(
+        "Registra una corrección del usuario para reentrenar el scoring. "
+        "La URL se persiste hasheada (SHA-256), nunca en claro."
+    ),
+    responses={500: {"model": ErrorResponse, "description": "Error interno no controlado"}},
+)
+def submit_feedback(request: FeedbackRequest):
+    recorded = feedback_store.record(
+        url=request.url,
+        predicted_risk=request.predicted_risk,
+        predicted_score=request.predicted_score,
+        reported_risk=request.reported_risk,
+        confidence=request.confidence,
+        variant=request.variant,
+    )
+    return {"recorded": recorded, "total": feedback_store.stats()["total"]}
+
+
+@router.get(
+    "/feedback/stats",
+    response_model=FeedbackStatsResponse,
+    tags=["Feedback"],
+    summary="Resumen de correcciones acumuladas",
+    description=(
+        "Falsos positivos (predijimos HIGH, el usuario reporta LOW) y falsos "
+        "negativos (predijimos LOW, el usuario reporta HIGH) se cuentan por "
+        "separado: sus costes son distintos."
+    ),
+)
+def feedback_stats():
+    return feedback_store.stats()
+
+
+@router.get(
+    "/experiment/status",
+    response_model=ExperimentStatusResponse,
+    tags=["Feedback"],
+    summary="Configuración activa del experimento de scoring",
+    description=(
+        "Requiere autenticación: el reparto de tráfico entre variantes es "
+        "configuración interna y no se publica en /metadata."
+    ),
+)
+def experiment_status():
+    return experiment.status()
 
 
 @router.get(

@@ -109,6 +109,8 @@ All three loaders resolve this directory via `get_models_dir()` in `backend/app/
 - `FACT_CHECK_API_KEY` — Google Fact Check Tools API
 - `API_KEY` — backend's own auth key, checked against the `X-API-Key` request header (empty disables auth)
 - `ALLOWED_ORIGINS` — extra CORS origins beyond the built-in chrome-extension/localhost regex
+- `EXPERIMENT_ROLLOUT` — fraction of traffic (0.0–1.0) routed to the candidate scoring variant; `0.0`/unset/out-of-range disables the experiment
+- `EXPERIMENT_VARIANT` — name reported for the candidate variant (default `candidate`)
 - `MODELS_DIR` — overrides where model loaders look for `models/` (read directly via `os.getenv` in `backend/app/core/paths.py`, not through the `settings` singleton); defaults to `<repo root>/models`, set to `/models` in the Docker deployment
 
 ### All endpoints
@@ -117,6 +119,9 @@ All three loaders resolve this directory via `get_models_dir()` in `backend/app/
 |---|---|---|
 | `POST` | `/predict` | Full URL analysis pipeline, returns cached result if available |
 | `POST` | `/analyze-content` | Raw text only → `ContentClassifierService` (REAL/FAKE); texts under 300 chars return a `no_content`/`UNKNOWN` verdict rather than being classified |
+| `POST` | `/feedback` | Record a user correction of a verdict (URL stored SHA-256 hashed, never in clear) |
+| `GET` | `/feedback/stats` | Accumulated corrections, with false positives and false negatives counted separately |
+| `GET` | `/experiment/status` | Active scoring-experiment config (authenticated: traffic split is not published on `/metadata`) |
 | `GET` | `/health` | Liveness check used by the extension's connection test |
 | `GET` | `/` | Root sanity check |
 | `GET` | `/metadata` | API version, which ML model files are present on disk, and active rate-limit/cache config |
@@ -187,6 +192,12 @@ docs/                      # api.md, architecture.md, decision_tree.md, mvp_scop
 ## Key conventions
 
 - `RiskEngine` starts every URL at a score of **50** and applies positive/negative deltas from each signal. Final range is clamped to 0–100; ≥80 = LOW risk, ≥50 = MEDIUM, <50 = HIGH.
+- `RiskEngine` also returns calibration fields (`probability`, `probability_interval`, `confidence`, `score_interval`, `ml_agreement`, `num_signals`) via `confidence_calibration.py`. `confidence` is a **0–1 float** — it used to be an int equal to `score`, which conflated two concepts. These fields are `Optional` in `RiskAssessment` because the 30-day warm cache keeps serving entries written before they existed.
+- The hyphen penalty reads `num_hyphens_domain` (hostname only), not `num_hyphens` (whole URL). Counting the whole URL penalized any news/docs page with a long slug while letting `paypal-secure-login-verify.com` through. `num_hyphens` is kept unchanged because the Random Forest consumes it as `NumHyphens` and was trained on that distribution — redefining it would silently shift the model's inputs.
+- Dynamic delta scaling: the young-domain penalty is multiplied by `_YOUNG_DOMAIN_DAMPING` when VirusTotal *and* Safe Browsing both report clean, since legitimate newly-registered sites are the main false-positive source. A confirmed threat never triggers damping.
+- Signals inside `RiskEngine.calculate` are `[delta, text, kind]` lists (mutable) so the damping pass can rewrite them; `kind` tags the signals eligible for contextual scaling.
+- `feedback_store.py` hashes URLs with SHA-256 before persisting — the backend learns from corrections without recording which sites a user visits. Write failures are swallowed: a lost correction must not break the analysis the user asked for.
+- `experiment.assign()` is deterministic by URL hash. Non-deterministic assignment would let the same URL return different verdicts, and the cache (which does not key on variant) would serve whichever landed first. Rollout defaults to 0.0, so the experiment is inert until `EXPERIMENT_ROLLOUT` is set.
 - `_safe(fn, *args)` in `phishing_service.py` wraps every parallel call; a failed sub-service returns `{"error": "..."}` and never crashes the pipeline.
 - All three model loaders (`random_forest/model_loader.py`, `roberta/model_loader.py`, `ContentClassifierService`) are lazy and download from HuggingFace Hub on first call — load via `@lru_cache`-wrapped `get_model()` on first call, not at import time. Downloaded models are cached locally in `./models`. If internet is unavailable or HuggingFace is unreachable, that signal fails via `_safe()` and doesn't crash the app.
 - Model warmup (`backend/app/core/model_warmup.py`) runs on startup only in `ENVIRONMENT=development` to prevent OOM on Render's 512MB limit. In production (`ENVIRONMENT=production`), models load lazily on first request (~30-60s).
@@ -246,7 +257,7 @@ Local visibility via `docker-compose.yml` (not deployed to Render):
 
 ## Testing
 
-✅ **324 tests passing** — Unit + integration tests with 100% model mocking (no real model files needed).
+✅ **446 tests passing** — Unit + integration tests with 100% model mocking (no real model files needed).
 
 **→ See [`docs/TESTING.md`](docs/TESTING.md) for test strategy and audit results (49 new tests added 2026-08-17).**
 
