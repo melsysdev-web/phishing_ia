@@ -24,36 +24,65 @@ const ApiClient = {
   async analyze(url) {
     const { backendUrl, apiKey } = await _config();
     const base = backendUrl.replace(/\/$/, "");
-    const res = await fetch(`${base}/predict`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
-      body: JSON.stringify({ url }),
-      signal: AbortSignal.timeout(60000),
-    });
-    if (!res.ok) throw new Error(`Error del servidor: ${res.status}`);
-    return res.json();
+    try {
+      const res = await fetch(`${base}/predict`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+        body: JSON.stringify({ url }),
+        signal: AbortSignal.timeout(60000),
+      });
+      if (!res.ok) throw new Error(`Error del servidor: ${res.status}`);
+      const data = await res.json();
+      if (!data || typeof data !== 'object') {
+        throw new Error('Respuesta inválida del servidor');
+      }
+      return data;
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        throw new Error('Tiempo de espera agotado');
+      }
+      throw err;
+    }
   },
 
   async analyzeContent(text) {
     const { backendUrl, apiKey } = await _config();
     const base = backendUrl.replace(/\/$/, "");
-    const res = await fetch(`${base}/analyze-content`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
-      body: JSON.stringify({ text }),
-      signal: AbortSignal.timeout(60000),
-    });
-    if (!res.ok) throw new Error(`Error del servidor: ${res.status}`);
-    return res.json();
+    try {
+      const res = await fetch(`${base}/analyze-content`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+        body: JSON.stringify({ text }),
+        signal: AbortSignal.timeout(60000),
+      });
+      if (!res.ok) throw new Error(`Error del servidor: ${res.status}`);
+      const data = await res.json();
+      if (!data || typeof data !== 'object') {
+        throw new Error('Respuesta inválida del servidor');
+      }
+      return data;
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        throw new Error('Tiempo de espera agotado');
+      }
+      throw err;
+    }
   },
 
   async testConnection() {
     const { backendUrl } = await _config();
     const base = backendUrl.replace(/\/$/, "");
-    const res = await fetch(`${base}/health`, {
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!res.ok) throw new Error(`El servidor respondió con error ${res.status}`);
-    return res.json();
+    try {
+      const res = await fetch(`${base}/health`, {
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!res.ok) throw new Error(`El servidor respondió con error ${res.status}`);
+      return res.json();
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        throw new Error('Tiempo de espera agotado');
+      }
+      throw err;
+    }
   },
 };

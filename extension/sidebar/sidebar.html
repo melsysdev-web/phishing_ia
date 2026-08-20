@@ -9,6 +9,16 @@
 <body>
   <div class="container">
 
+    <!-- Polyfill para anime.js en caso de que no cargue desde CDN -->
+    <script>
+      if (!window.anime) {
+        window.anime = function() { return {}; };
+        anime.timeline = function() { return { add: function() { return this; } }; };
+        anime.set = function() { return {}; };
+        anime.stagger = function(delay) { return delay; };
+      }
+    </script>
+
     <header class="header">
       <span class="header-icon">🛡️</span>
       <h1 class="header-title">AI Phishing Detector</h1>
