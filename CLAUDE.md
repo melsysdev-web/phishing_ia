@@ -264,19 +264,29 @@ Quick summary:
 - Enable Auto-Deploy on push to `main`
 - Service at `https://<service-name>.onrender.com`
 
-### ⚠️ `/predict` does not work on Render's free tier (verified 2026-08-20)
+### Memory budget — why `/predict` was returning 502
 
-The models total **821 MB on disk** (`roberta_content` 479 MB + `roberta_phishing_new` 317 MB + `random_forest_v2.pkl` 25 MB) against a **512 MB RAM** limit. Measured against `phishing-ia-smmy.onrender.com`:
+Model distribution is solved: the Dockerfile downloads the weights from `mel3601/phishing-ia-models` on Hugging Face during build and bakes them into the image at `/models` (`MODELS_DIR=/models`). That is why `/metadata` sees them.
 
-- `GET /health` → 200 (no models loaded, so nothing to exhaust)
-- `GET /metadata` → all three models report `true`
-- `POST /predict` → **502**, and the service then stayed 502 on every subsequent request including `/health`
+The failure was **RAM at inference time**, not distribution. Measured RSS per stage (local CUDA torch build; the Docker CPU wheel is smaller, but the per-model deltas hold):
 
-Disabling warmup did not fix this — it moved the allocation from startup to the first `/predict`, where the single worker (`WEB_CONCURRENCY=1`) is OOM-killed and takes the whole service down.
+| Stage | Δ RSS |
+|---|---|
+| `import torch` | +470 MB (CUDA build; CPU wheel is materially smaller) |
+| `import transformers` + `fastapi` | +33 MB |
+| Random Forest (300 trees, depth 29, 321k nodes) | +156 MB |
+| RoBERTa URL, **with** `quantize_dynamic` | **+538 MB** (757 MB peak) |
+| RoBERTa URL, **without** quantization | **+115 MB** |
 
-**`/metadata` reporting `true` is not evidence the models work**: it only calls `.exists()` on the files. Any check that the models are functional must call `/predict`.
+`roberta_content` is *not* loaded by `/predict` — only `/analyze-content` touches it.
 
-Options: upgrade the Render instance past 512 MB, drop `roberta_content` from the image (only `/analyze-content` uses it), or move inference off the web dyno.
+**The int8 quantization was the cause.** It was added to speed up CPU inference, but to convert the weights it materializes all of them, spiking +735 MB, whereas safetensors otherwise maps the fp32 weights lazily. It bought 1.96 ms/URL (16.5%) in a pipeline that takes 3–8 s dominated by network I/O. Removing it cut `/predict` from 1213 MB to 791 MB. `torch.ao.quantization` is also deprecated and removed in torch 2.10. **Do not reintroduce it** — see the note in `roberta/model_loader.py`.
+
+Disabling warmup earlier did not fix the 502; it moved the allocation from startup to the first `/predict`, where the single worker (`WEB_CONCURRENCY=1`) was OOM-killed and took the whole service down with it.
+
+**`/metadata` reporting `"models": true` is not evidence that inference works** — it only calls `.exists()` on the files. Verifying a deployment requires calling `/predict`.
+
+Remaining gap: after the fix the non-torch footprint is ~320 MB; whether that plus the CPU torch wheel fits in 512 MB has not been measured on Render itself. If it still does not fit, the levers are a larger instance, or retraining the Random Forest with fewer than 300 trees (needs validation data to justify the accuracy tradeoff).
 
 ## Monitoring (Prometheus + Grafana, local only)
 

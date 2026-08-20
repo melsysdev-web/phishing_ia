@@ -153,13 +153,24 @@ El backend se puede correr con Docker (`docker compose up backend`, ver `docker-
 - Configurar `ENVIRONMENT=production` y `API_KEY` en `.env`. Con `ENVIRONMENT=production`, el backend **rehúsa arrancar** si `API_KEY` está vacío (evita quedar sin autenticación por descuido).
 - Revisar `ALLOWED_ORIGINS` si la extensión/cliente no corre desde `chrome-extension://` o `localhost`.
 
-### ⚠️ Memoria requerida
+### Memoria requerida
 
-Los modelos ocupan **~821 MB** y hay que cargarlos en RAM para inferir. Verificado el 2026-08-20 contra el plan gratuito de Render (512 MB): `/health` y `/metadata` responden 200, pero `POST /predict` devuelve **502** y tumba el servicio — el worker muere por falta de memoria al cargar los modelos.
+Los pesos se descargan desde [Hugging Face](https://huggingface.co/mel3601/phishing-ia-models) durante el build de Docker y quedan horneados en la imagen (`MODELS_DIR=/models`), así que la distribución está resuelta. Lo que importa en runtime es la RAM.
 
-`/metadata` informando `"models": true` **no prueba que funcionen**: sólo comprueba que los archivos existan en disco. Para verificar que el despliegue sirve, hay que llamar a `/predict`.
+Coste medido por etapa al atender `/predict`:
 
-Opciones: una instancia con más de 512 MB, quitar `roberta_content` de la imagen (sólo lo usa `/analyze-content`), o sacar la inferencia del proceso web.
+| Etapa | Δ RAM |
+|---|---|
+| `import torch` | +470 MB (build CUDA local; la rueda CPU de Docker es menor) |
+| `transformers` + `fastapi` | +33 MB |
+| Random Forest | +156 MB |
+| RoBERTa URL | +115 MB |
+
+`roberta_content` **no se carga** en `/predict`; sólo lo usa `/analyze-content`.
+
+> Hasta el 2026-08-20 el cargador de RoBERTa cuantizaba a int8 para acelerar CPU. Medido, hacía lo contrario: materializaba todos los pesos y disparaba un pico de +735 MB que mataba al worker en el plan gratuito de Render (512 MB), devolviendo **502** en `/predict` y tumbando el servicio. Ganaba 1.96 ms por URL en un pipeline de 3–8 s. Se quitó.
+
+`/metadata` informando `"models": true` **no prueba que funcionen**: sólo comprueba que los archivos existan en disco. Para verificar un despliegue hay que llamar a `/predict`.
 
 ---
 
