@@ -7,10 +7,12 @@ Extensión para Google Chrome que detecta sitios de phishing en tiempo real medi
 ## Características
 
 - **Score visual 0–100** con veredicto LOW / MEDIUM / HIGH
+- **Confianza calibrada**: cada veredicto reporta cuánto confiar en él, y baja cuando los modelos discrepan o hay pocas señales
 - **9 señales independientes**: si una API falla, las demás siguen operando
 - **Pipeline paralelo**: 6 tareas I/O en paralelo → resultado en 3–8 s
-- **Cache TTL 10 min** — URLs repetidas responden en < 5 ms
+- **Cache de dos capas**: 10 min en memoria + 30 días en SQLite para no gastar cuota de API en URLs repetidas
 - **Explicable**: cada veredicto incluye las razones en lenguaje natural
+- **Corregible**: el usuario puede reportar un veredicto equivocado desde el sidebar
 - **Extensión completa**: popup minimalista, sidebar con análisis completo, página de opciones
 
 ---
@@ -115,6 +117,9 @@ El servidor queda disponible en `http://localhost:8000`.
 | `GET` | `/metadata` | Versión de la API, modelos ML disponibles y configuración activa |
 | `POST` | `/predict` | Análisis completo de una URL |
 | `POST` | `/analyze-content` | Clasificación de texto libre (REAL/FAKE) |
+| `POST` | `/feedback` | Reportar un veredicto incorrecto (la URL se guarda hasheada) |
+| `GET` | `/feedback/stats` | Correcciones acumuladas, con falsos positivos y negativos por separado |
+| `GET` | `/experiment/status` | Configuración activa del experimento de scoring |
 | `GET` | `/cache/stats` | Estadísticas del cache en memoria |
 | `DELETE` | `/cache` | Limpiar cache |
 
@@ -147,6 +152,14 @@ El backend se puede correr con Docker (`docker compose up backend`, ver `docker-
 - Poner un proxy inverso con TLS delante (nginx, Caddy, Traefik, etc.) — el contenedor del backend no debe exponerse directamente a internet.
 - Configurar `ENVIRONMENT=production` y `API_KEY` en `.env`. Con `ENVIRONMENT=production`, el backend **rehúsa arrancar** si `API_KEY` está vacío (evita quedar sin autenticación por descuido).
 - Revisar `ALLOWED_ORIGINS` si la extensión/cliente no corre desde `chrome-extension://` o `localhost`.
+
+### ⚠️ Memoria requerida
+
+Los modelos ocupan **~821 MB** y hay que cargarlos en RAM para inferir. Verificado el 2026-08-20 contra el plan gratuito de Render (512 MB): `/health` y `/metadata` responden 200, pero `POST /predict` devuelve **502** y tumba el servicio — el worker muere por falta de memoria al cargar los modelos.
+
+`/metadata` informando `"models": true` **no prueba que funcionen**: sólo comprueba que los archivos existan en disco. Para verificar que el despliegue sirve, hay que llamar a `/predict`.
+
+Opciones: una instancia con más de 512 MB, quitar `roberta_content` de la imagen (sólo lo usa `/analyze-content`), o sacar la inferencia del proceso web.
 
 ---
 
@@ -216,12 +229,12 @@ venv\Scripts\python -m backend.app.random_forest.test_predict
 |---|---|
 | [`docs/api.md`](docs/api.md) | Contrato de la API: endpoints, request/response, ejemplos curl, códigos de error |
 | [`docs/architecture.md`](docs/architecture.md) | Arquitectura completa, pipeline, módulos |
-| [`docs/decision_tree.md`](docs/decision_tree.md) | Lógica de puntuación del RiskEngine |
-| [`docs/mvp_scope.md`](docs/mvp_scope.md) | Alcance e implementación del proyecto |
-| [`docs/testing_report.md`](docs/testing_report.md) | Casos de prueba y resultados |
-| [`docs/user_stories.md`](docs/user_stories.md) | Historias de usuario |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Despliegue en Render paso a paso, variables de entorno, troubleshooting |
+| [`docs/TESTING.md`](docs/TESTING.md) | Estrategia de pruebas y cobertura |
+| [`docs/EXTENSION_STABILITY.md`](docs/EXTENSION_STABILITY.md) | Código defensivo de la extensión y los fallos que absorbe |
+| [`SCORE_IMPROVEMENTS_STRATEGY.md`](SCORE_IMPROVEMENTS_STRATEGY.md) | Qué entregó el trabajo de scoring y qué sigue bloqueado por falta de datos |
+| [`docs/EDGE_ADDON_UPLOAD.md`](docs/EDGE_ADDON_UPLOAD.md) | Publicación en Microsoft Edge Add-ons |
 | [`docs/changelog.md`](docs/changelog.md) | Historial de cambios |
-| [`docs/presentacion.md`](docs/presentacion.md) | Presentación del proyecto con FAQ |
 
 ---
 

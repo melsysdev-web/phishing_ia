@@ -186,7 +186,8 @@ scripts/
   test_phishing_url.py         # ad-hoc single-URL check against phishing_detector/
   augment_roberta_dataset.py    # dataset augmentation for the RoBERTa URL trainer
 
-docs/                      # api.md, architecture.md, decision_tree.md, mvp_scope.md, testing_report.md, user_stories.md, changelog.md, presentacion.md
+docs/                      # api.md, architecture.md, changelog.md, DEPLOYMENT.md, TESTING.md,
+                           # EXTENSION_STABILITY.md, EDGE_ADDON_UPLOAD.md, EDGE_STORE_DESCRIPTIONS.md
 ```
 
 ## Key conventions
@@ -225,10 +226,12 @@ This ensures all changes are tested in CI before landing on main.
 
 ## 📚 Full Documentation
 
-- **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** — Pipeline flowchart, RiskEngine scoring, ML models, Chrome extension
+- **[`docs/architecture.md`](docs/architecture.md)** — Pipeline flowchart, RiskEngine scoring, ML models, Chrome extension
 - **[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)** — Step-by-step Render deployment, env vars, troubleshooting
 - **[`docs/TESTING.md`](docs/TESTING.md)** — Test audit results, new test coverage, running tests locally
-- **[`docs/API.md`](docs/API.md)** — Endpoint reference with curl examples
+- **[`docs/api.md`](docs/api.md)** — Endpoint reference with curl examples
+- **[`docs/EXTENSION_STABILITY.md`](docs/EXTENSION_STABILITY.md)** — Defensive code in the extension and the failures it absorbs
+- **[`SCORE_IMPROVEMENTS_STRATEGY.md`](SCORE_IMPROVEMENTS_STRATEGY.md)** — What the scoring work delivered, and what is blocked on labelled data
 - **[`docs/changelog.md`](docs/changelog.md)** — Recent changes and versions
 
 ---
@@ -247,6 +250,20 @@ Quick summary:
 - Models download from HuggingFace Hub during build (~60-90s cold start); lazy loading on first request in production
 - Enable Auto-Deploy on push to `main`
 - Service at `https://<service-name>.onrender.com`
+
+### ⚠️ `/predict` does not work on Render's free tier (verified 2026-08-20)
+
+The models total **821 MB on disk** (`roberta_content` 479 MB + `roberta_phishing_new` 317 MB + `random_forest_v2.pkl` 25 MB) against a **512 MB RAM** limit. Measured against `phishing-ia-smmy.onrender.com`:
+
+- `GET /health` → 200 (no models loaded, so nothing to exhaust)
+- `GET /metadata` → all three models report `true`
+- `POST /predict` → **502**, and the service then stayed 502 on every subsequent request including `/health`
+
+Disabling warmup did not fix this — it moved the allocation from startup to the first `/predict`, where the single worker (`WEB_CONCURRENCY=1`) is OOM-killed and takes the whole service down.
+
+**`/metadata` reporting `true` is not evidence the models work**: it only calls `.exists()` on the files. Any check that the models are functional must call `/predict`.
+
+Options: upgrade the Render instance past 512 MB, drop `roberta_content` from the image (only `/analyze-content` uses it), or move inference off the web dyno.
 
 ## Monitoring (Prometheus + Grafana, local only)
 
