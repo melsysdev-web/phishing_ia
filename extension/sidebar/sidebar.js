@@ -4,42 +4,50 @@ const VERDICT = {
   high:   { icon: "🚨", label: "PELIGROSO",   text: "Esta URL es peligrosa" },
 };
 
+function safeGetElement(id) {
+  return document.getElementById(id) || { classList: { add: () => {}, remove: () => {}, toggle: () => {} }, textContent: '', innerHTML: '', style: {}, value: '' };
+}
+
+function isAnimeAvailable() {
+  return window.anime && typeof window.anime === 'function' && window.anime.timeline;
+}
+
 document.addEventListener("DOMContentLoaded", () => {
+  try {
+    const urlInput   = safeGetElement("urlInput");
+    const analyzeBtn = safeGetElement("analyzeBtn");
+    const retryBtn   = safeGetElement("retryBtn");
+    const textarea   = safeGetElement("contentTextarea");
+    const analyzeContentBtn = safeGetElement("analyzeContentBtn");
+    const extractPageBtn = safeGetElement("extractPageBtn");
+    const tabUrl = safeGetElement("tabUrl");
+    const tabContent = safeGetElement("tabContent");
 
-  // ── Pestaña URL ───────────────────────────────────────────────────────────
-  const urlInput   = document.getElementById("urlInput");
-  const analyzeBtn = document.getElementById("analyzeBtn");
-
-  function triggerAnalyze() {
-    const url = urlInput.value.trim();
-    if (!url) return;
-    if (!url.startsWith("http://") && !url.startsWith("https://")) {
-      showError("La URL debe comenzar con http:// o https://");
-      return;
+    function triggerAnalyze() {
+      const url = (urlInput?.value || "").trim();
+      if (!url) return;
+      if (!url.startsWith("http://") && !url.startsWith("https://")) {
+        showError("La URL debe comenzar con http:// o https://");
+        return;
+      }
+      analyze(url);
     }
-    analyze(url);
+
+    if (analyzeBtn) analyzeBtn.addEventListener("click", triggerAnalyze);
+    if (urlInput) urlInput.addEventListener("keydown", (e) => { if (e.key === "Enter") triggerAnalyze(); });
+    if (retryBtn) retryBtn.addEventListener("click", triggerAnalyze);
+
+    if (textarea) textarea.addEventListener("input", updateCharCount);
+    if (extractPageBtn) extractPageBtn.addEventListener("click", extractFromActivePage);
+    if (analyzeContentBtn) analyzeContentBtn.addEventListener("click", () =>
+      analyzeContentText(textarea, analyzeContentBtn)
+    );
+
+    if (tabUrl) tabUrl.addEventListener("click", () => switchTab("url"));
+    if (tabContent) tabContent.addEventListener("click", () => switchTab("content"));
+  } catch (err) {
+    console.error('Error en sidebar DOMContentLoaded:', err);
   }
-
-  analyzeBtn.addEventListener("click", triggerAnalyze);
-  urlInput.addEventListener("keydown", (e) => { if (e.key === "Enter") triggerAnalyze(); });
-  document.getElementById("retryBtn").addEventListener("click", triggerAnalyze);
-
-  // ── Pestaña Contenido ─────────────────────────────────────────────────────
-  const textarea          = document.getElementById("contentTextarea");
-  const charCount         = document.getElementById("charCount");
-  const analyzeContentBtn = document.getElementById("analyzeContentBtn");
-
-  textarea.addEventListener("input", updateCharCount);
-
-  document.getElementById("extractPageBtn").addEventListener("click", extractFromActivePage);
-
-  analyzeContentBtn.addEventListener("click", () =>
-    analyzeContentText(textarea, analyzeContentBtn)
-  );
-
-  // ── Cambio de pestañas ────────────────────────────────────────────────────
-  document.getElementById("tabUrl").addEventListener("click",     () => switchTab("url"));
-  document.getElementById("tabContent").addEventListener("click", () => switchTab("content"));
 });
 
 function switchTab(tab) {
@@ -109,42 +117,50 @@ async function analyze(url) {
 }
 
 function showLoading() {
-  const loadingEl = document.getElementById("loadingState");
-  const errorEl = document.getElementById("errorState");
-  const resultsEl = document.getElementById("results");
+  const loadingEl = safeGetElement("loadingState");
+  const errorEl = safeGetElement("errorState");
+  const resultsEl = safeGetElement("results");
 
   loadingEl.classList.remove("hidden");
   errorEl.classList.add("hidden");
   resultsEl.classList.add("hidden");
 
-  anime.set(loadingEl, { opacity: 0, scale: 0.95 });
-  anime({
-    targets: loadingEl,
-    opacity: [0, 1],
-    scale: [0.95, 1],
-    duration: 400,
-    easing: 'easeOutCubic',
-  });
+  if (isAnimeAvailable()) {
+    anime.set(loadingEl, { opacity: 0, scale: 0.95 });
+    anime({
+      targets: loadingEl,
+      opacity: [0, 1],
+      scale: [0.95, 1],
+      duration: 400,
+      easing: 'easeOutCubic',
+    });
+  } else {
+    loadingEl.style.opacity = '1';
+  }
 }
 
 function showError(msg) {
-  const loadingEl = document.getElementById("loadingState");
-  const errorEl = document.getElementById("errorState");
-  const resultsEl = document.getElementById("results");
+  const loadingEl = safeGetElement("loadingState");
+  const errorEl = safeGetElement("errorState");
+  const resultsEl = safeGetElement("results");
 
   loadingEl.classList.add("hidden");
   errorEl.classList.remove("hidden");
   resultsEl.classList.add("hidden");
-  document.getElementById("errorText").textContent = msg;
+  safeGetElement("errorText").textContent = msg;
 
-  anime.set(errorEl, { opacity: 0, scale: 0.95 });
-  anime({
-    targets: errorEl,
-    opacity: [0, 1],
-    scale: [0.95, 1],
-    duration: 400,
-    easing: 'easeOutCubic',
-  });
+  if (isAnimeAvailable()) {
+    anime.set(errorEl, { opacity: 0, scale: 0.95 });
+    anime({
+      targets: errorEl,
+      opacity: [0, 1],
+      scale: [0.95, 1],
+      duration: 400,
+      easing: 'easeOutCubic',
+    });
+  } else {
+    errorEl.style.opacity = '1';
+  }
 }
 
 function toggle(id, visible) {
@@ -154,63 +170,85 @@ function toggle(id, visible) {
 // ─── Render principal ─────────────────────────────────────────────────────────
 
 function render(data) {
-  const risk    = data.risk_assessment        || {};
-  const vt      = data.virustotal             || {};
-  const sb      = data.safe_browsing          || {};
-  const fc      = data.fact_check             || {};
-  const content = data.content_classification || {};
-  const ml      = data.machine_learning       || {};
+  try {
+    const risk    = data.risk_assessment        || {};
+    const vt      = data.virustotal             || {};
+    const sb      = data.safe_browsing          || {};
+    const fc      = data.fact_check             || {};
+    const content = data.content_classification || {};
+    const ml      = data.machine_learning       || {};
 
-  const level   = (risk.risk || "HIGH").toLowerCase();
-  const score   = risk.score ?? 0;
-  const reasons = sortedReasons(risk.reasons || []);
+    const level   = (risk.risk || "HIGH").toLowerCase();
+    const score   = risk.score ?? 0;
+    const reasons = sortedReasons(risk.reasons || []);
 
-  document.getElementById("results").className = `results ${level}`;
+    safeGetElement("results").className = `results ${level}`;
 
-  renderVerdict(level, score);
-  renderML(ml);
-  renderThreatIntel(vt, sb, fc);
-  renderContent(content);
-  renderReasons(reasons);
+    renderVerdict(level, score);
+    renderML(ml);
+    renderThreatIntel(vt, sb, fc);
+    renderContent(content);
+    renderReasons(reasons);
 
-  toggle("results",      true);
-  toggle("loadingState", false);
-  toggle("errorState",   false);
+    toggle("results",      true);
+    toggle("loadingState", false);
+    toggle("errorState",   false);
 
-  animateScore(score);
-  animateResultsEntry();
+    animateScore(score);
+    animateResultsEntry();
+  } catch (err) {
+    console.error('Error en render:', err);
+    showError('Error al renderizar resultados');
+  }
 }
 
 // ─── Veredicto ────────────────────────────────────────────────────────────────
 
 function renderVerdict(level, score) {
-  const v    = VERDICT[level] || VERDICT.high;
-  const card = document.getElementById("verdictCard");
-  card.className = `verdict-card ${level}`;
-  document.getElementById("verdictIcon").textContent  = v.icon;
-  document.getElementById("verdictLabel").textContent = v.label;
-  document.getElementById("verdictText").textContent  = v.text;
-  document.getElementById("scoreBar").style.width     = `${score}%`;
+  try {
+    const v    = VERDICT[level] || VERDICT.high;
+    const card = safeGetElement("verdictCard");
+    if (card) card.className = `verdict-card ${level}`;
+    safeGetElement("verdictIcon").textContent  = v.icon;
+    safeGetElement("verdictLabel").textContent = v.label;
+    safeGetElement("verdictText").textContent  = v.text;
+    const scoreBar = safeGetElement("scoreBar");
+    if (scoreBar && scoreBar.style) scoreBar.style.width = `${score}%`;
+  } catch (err) {
+    console.error('Error en renderVerdict:', err);
+  }
 }
 
 function animateScore(target) {
-  const scoreBar = document.getElementById("scoreBar");
-  const scoreNum = document.getElementById("scoreNum");
+  if (!isAnimeAvailable()) {
+    const scoreBar = safeGetElement("scoreBar");
+    const scoreNum = safeGetElement("scoreNum");
+    if (scoreBar && scoreBar.style) scoreBar.style.width = `${target}%`;
+    if (scoreNum) scoreNum.textContent = String(target);
+    return;
+  }
 
-  anime.timeline()
-    .add({
-      targets: scoreBar,
-      width: [`0%`, `${target}%`],
-      duration: 900,
-      easing: 'easeInOutCubic',
-    }, 0)
-    .add({
-      targets: scoreNum,
-      innerHTML: [0, target],
-      round: 1,
-      duration: 900,
-      easing: 'easeInOutCubic',
-    }, 0);
+  try {
+    const scoreBar = safeGetElement("scoreBar");
+    const scoreNum = safeGetElement("scoreNum");
+
+    anime.timeline()
+      .add({
+        targets: scoreBar,
+        width: [`0%`, `${target}%`],
+        duration: 900,
+        easing: 'easeInOutCubic',
+      }, 0)
+      .add({
+        targets: scoreNum,
+        innerHTML: [0, target],
+        round: 1,
+        duration: 900,
+        easing: 'easeInOutCubic',
+      }, 0);
+  } catch (err) {
+    console.error('Error en animateScore:', err);
+  }
 }
 
 // ─── Modelos ML ───────────────────────────────────────────────────────────────
@@ -371,22 +409,27 @@ function reasonIcon(r) {
 }
 
 function renderReasons(reasons) {
-  const list = document.getElementById("reasonsList");
-  list.innerHTML = "";
-  if (!reasons.length) {
-    const li = document.createElement("li");
-    li.innerHTML = `<span class="reason-icon">ℹ️</span> Sin señales de riesgo adicionales.`;
-    list.appendChild(li);
-    return;
+  try {
+    const list = safeGetElement("reasonsList");
+    if (!list) return;
+    list.innerHTML = "";
+    if (!Array.isArray(reasons) || !reasons.length) {
+      const li = document.createElement("li");
+      li.textContent = "ℹ️ Sin señales de riesgo adicionales.";
+      list.appendChild(li);
+      return;
+    }
+    reasons.forEach(r => {
+      const li = document.createElement("li");
+      const icon = document.createElement("span");
+      icon.className = "reason-icon";
+      icon.textContent = reasonIcon(r);
+      li.append(icon, document.createTextNode(String(r || '')));
+      list.appendChild(li);
+    });
+  } catch (err) {
+    console.error('Error en renderReasons:', err);
   }
-  reasons.forEach(r => {
-    const li = document.createElement("li");
-    const icon = document.createElement("span");
-    icon.className = "reason-icon";
-    icon.textContent = reasonIcon(r);
-    li.append(icon, document.createTextNode(r));
-    list.appendChild(li);
-  });
 }
 
 // ─── Extracción de texto desde la pestaña activa ──────────────────────────────
@@ -406,21 +449,25 @@ function _extractPageText() {
 }
 
 async function extractFromActivePage() {
-  const btn = document.getElementById("extractPageBtn");
-  btn.disabled = true;
-  btn.textContent = "Extrayendo...";
+  const btn = safeGetElement("extractPageBtn");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Extrayendo...";
+  }
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.id) throw new Error("no-tab");
-    const [{ result: text }] = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tabs || tabs.length === 0 || !tabs[0]?.id) throw new Error("no-tab");
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tabs[0].id },
       func: _extractPageText,
     });
+    const text = results?.[0]?.result || "";
     if (!text || text.length < 50) {
       showContentError("No se pudo extraer suficiente texto de esta página.");
       return;
     }
-    document.getElementById("contentTextarea").value = text;
+    const textarea = safeGetElement("contentTextarea");
+    if (textarea) textarea.value = text;
     updateCharCount();
   } catch (err) {
     const msg = err?.message || "";
@@ -430,8 +477,10 @@ async function extractFromActivePage() {
         : "Error al extraer el texto. Intenta pegar el texto manualmente."
     );
   } finally {
-    btn.disabled = false;
-    btn.textContent = "📄 Usar página actual";
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "📄 Usar página actual";
+    }
   }
 }
 
@@ -484,7 +533,7 @@ function showContentError(msg) {
   toggle("contentLoadingState", false);
   toggle("contentErrorState",   true);
   toggle("contentResult",       false);
-  document.getElementById("contentErrorText").textContent = msg;
+  safeGetElement("contentErrorText").textContent = msg;
 }
 
 function renderContentResult(data) {
