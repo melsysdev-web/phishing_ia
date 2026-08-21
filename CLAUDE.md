@@ -35,6 +35,17 @@ venv\Scripts\python -m pytest backend/tests/test_risk_engine.py -v
 - Clear `RateLimitMiddleware`'s `_rate_store` before every test — the limiter buckets by IP only (not by path), so without the reset, tests hitting `/predict`/`/analyze-content` in sequence would trip 429s from earlier tests.
 - Reset VirusTotal quota circuit breaker state before every test to prevent state leakage between tests (the circuit is global and affects all VT service calls).
 
+**Check /predict still fits in Render's 512 MB** (needs Docker; builds the production image, so the first run downloads ~821 MB of weights):
+```powershell
+venv\Scripts\python scripts\memory_check.py --concurrency 2
+```
+Fails if the kernel OOM-kills the container. Deliberately not in CI — the image build is too heavy for a per-PR job.
+
+**Verify a deployment** (`/health` and `/metadata` do *not* verify one — see "Memory budget" below):
+```powershell
+venv\Scripts\python scripts\smoke_test.py --base-url https://<service>.onrender.com
+```
+
 **Quick model smoke test (Random Forest):**
 ```powershell
 venv\Scripts\python -m backend.app.random_forest.test_predict
@@ -300,7 +311,7 @@ Local visibility via `docker-compose.yml` (not deployed to Render):
 
 ## Testing
 
-✅ **500 tests passing** — Unit + integration tests with 100% model mocking (no real model files needed).
+✅ **517 tests passing** — Unit + integration tests with 100% model mocking (no real model files needed).
 
 **→ See [`docs/TESTING.md`](docs/TESTING.md) for test strategy and audit results (49 new tests added 2026-08-17).**
 

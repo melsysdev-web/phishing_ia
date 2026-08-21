@@ -63,6 +63,21 @@ means the backend is actually serving analyses.
 
 If you set `API_KEY`, pass it too (`--api-key`, or the `SMOKE_API_KEY` env var).
 
+### Before changing anything that loads a model
+
+`scripts/memory_check.py` reproduces Render's constraint locally: the production
+image in a container capped at 512 MB, `ENVIRONMENT=production`, one worker.
+
+```bash
+python scripts/memory_check.py --concurrency 2
+```
+
+It fails if the kernel OOM-kills the container — the regression it guards. This
+is how the 502 was diagnosed: one request peaked at 395 MiB and fit fine, two
+concurrent ones hit 441 MiB and killed the worker, taking `/health` down with
+it. Not in CI: the build pulls ~821 MB of weights from HuggingFace, too much for
+a per-PR job.
+
 ### 5. Update Extension
 
 - Extension options page → Backend URL → `https://<service-name>.onrender.com`
