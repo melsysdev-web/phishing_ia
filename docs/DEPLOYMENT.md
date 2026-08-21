@@ -103,7 +103,7 @@ a per-PR job.
 | `FACT_CHECK_API_KEY` | Google Fact Check Tools API | `ghi789...` |
 | `API_KEY` | Backend authentication (X-API-Key header) | `a7f3c9e2b1d4f6a8c5e2b9d1f4a7c3e5...` |
 | `FORWARDED_ALLOW_IPS` | Trust X-Forwarded-For from proxy | `*` (Render safe) |
-| `ENVIRONMENT` | `production` or `development` | `production` |
+| `ENVIRONMENT` | `production` or `development`. Does not affect model loading (always lazy); `production` refuses to boot without `API_KEY` and hides error internals | `production` |
 | `ALLOWED_ORIGINS` | Extra CORS origins (comma-separated) | `https://example.com,https://other.com` |
 | `MAX_CONCURRENT_ANALYSES` | Analyses allowed at once (shared by `/predict` and `/analyze-content`) | `1` (do not raise on 512 MB) |
 | `ANALYSIS_QUEUE_TIMEOUT` | Seconds queued before a 503 | `30` |

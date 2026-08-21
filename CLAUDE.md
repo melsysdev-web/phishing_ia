@@ -218,7 +218,7 @@ docs/                      # Base del proyecto: mvp_scope.md, user_stories.md, d
 - `experiment.assign()` is deterministic by URL hash. Non-deterministic assignment would let the same URL return different verdicts, and the cache (which does not key on variant) would serve whichever landed first. Rollout defaults to 0.0, so the experiment is inert until `EXPERIMENT_ROLLOUT` is set.
 - `_safe(fn, *args)` in `phishing_service.py` wraps every parallel call; a failed sub-service returns `{"error": "..."}` and never crashes the pipeline.
 - All three model loaders (`random_forest/model_loader.py`, `roberta/model_loader.py`, `ContentClassifierService`) are lazy and download from HuggingFace Hub on first call — load via `@lru_cache`-wrapped `get_model()` on first call, not at import time. Downloaded models are cached locally in `./models`. If internet is unavailable or HuggingFace is unreachable, that signal fails via `_safe()` and doesn't crash the app.
-- Model warmup (`backend/app/core/model_warmup.py`) runs on startup only in `ENVIRONMENT=development` to prevent OOM on Render's 512MB limit. In production (`ENVIRONMENT=production`), models load lazily on first request (~30-60s).
+- `warmup_models()` (`backend/app/core/model_warmup.py`) loads nothing — it logs a line and returns. Loading is lazy in every environment, via the `@lru_cache`'d `get_model()` of each loader, so the first `/predict` after a restart pays ~30-60s. It does **not** branch on `ENVIRONMENT`; the name is a leftover from when it did, and eager warmup was removed because it OOM-killed the worker on Render's 512 MB.
 - `FusionEngine` gracefully degrades: if one model errors, it uses the other at full weight.
 - `ContentClassifierService` is lazy-loaded (via `@lru_cache`) on first call; uses HuggingFace model `hamzab/roberta-fake-news-classification` by default. Inputs under 300 characters short-circuit to a `no_content`/`UNKNOWN`/`0.0` result rather than being run through the model.
 - Label normalization in `ContentClassifierService`: model returns `TRUE/FALSE`, normalized to `REAL/FAKE`.
@@ -272,7 +272,7 @@ Quick summary:
 - Configure env vars:
   - `VIRUSTOTAL_API_KEY`, `SAFE_BROWSING_API_KEY`, `FACT_CHECK_API_KEY` — threat-intel APIs
   - `API_KEY` (optional) — backend authentication key
-  - `ENVIRONMENT` — `production` or `development` (controls model warmup strategy: lazy in production, eager in dev)
+  - `ENVIRONMENT` — `production` or `development`. Does **not** affect model loading (always lazy). In `production` the backend refuses to start without `API_KEY`, and error responses omit the `detail` field so internals don't leak
   - `FORWARDED_ALLOW_IPS=*` — allow X-Forwarded-For from Render's proxy
 - Models download from HuggingFace Hub during build (~60-90s cold start); lazy loading on first request in production
 - Enable Auto-Deploy on push to `main`
