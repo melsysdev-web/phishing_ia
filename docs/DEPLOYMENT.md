@@ -45,12 +45,23 @@ ENVIRONMENT=production
 - Wait for `"healthy"` message (~60-90s first time, models download from HuggingFace)
 - Service is ready at `https://<service-name>.onrender.com`
 
-### 4. Test the API
+### 4. Verify the deploy
+
+**`/health` and `/metadata` are not a verification.** They have both returned 200
+on a service whose `/predict` was answering 502 — `/health` is a constant and
+`/metadata` only calls `.exists()` on the model files, which says nothing about
+whether inference fits in memory. Verifying a deploy means calling `/predict`:
 
 ```bash
-curl https://<service-name>.onrender.com/health
-curl https://<service-name>.onrender.com/metadata
+python scripts/smoke_test.py --base-url https://<service-name>.onrender.com
 ```
+
+It waits for the service to answer, runs a real analysis and checks the response
+carries a risk score and an ML prediction — the pipeline degrades gracefully, so
+a deploy with no working models still returns a well-formed 200. Exit code 0
+means the backend is actually serving analyses.
+
+If you set `API_KEY`, pass it too (`--api-key`, or the `SMOKE_API_KEY` env var).
 
 ### 5. Update Extension
 
@@ -276,6 +287,23 @@ Render free tier doesn't include monitoring; use third-party services.
 
 No manual setup needed — it's automatic.
 
+`.github/workflows/smoke-test.yml` then checks the deployed service actually
+serves analyses (see step 4). This one **does** need setup: add two repository
+secrets, otherwise the job logs a warning and skips rather than failing red.
+
+| Secret | Value |
+|---|---|
+| `SMOKE_BASE_URL` | `https://<service-name>.onrender.com` |
+| `SMOKE_API_KEY` | the same value as the service's `API_KEY` (omit if unset) |
+
+Caveat worth knowing before trusting a green check: the job cannot tell which
+build Render is serving. It waits a fixed interval after the push and analyses
+whatever answers, which during a long build may still be the previous deploy.
+The reliable run is the manual one — trigger it from the Actions tab once the
+Render dashboard shows the deploy as live. Making it exact would require the API
+to report the running commit (Render sets `RENDER_GIT_COMMIT`) or polling
+Render's API with a token.
+
 ---
 
 ## Pre-Deploy Checklist
@@ -289,6 +317,7 @@ No manual setup needed — it's automatic.
 - [ ] Created Web Service on Render
 - [ ] Configured all env vars in Render dashboard
 - [ ] Set `FORWARDED_ALLOW_IPS=*`
+- [ ] Verified the deploy with `scripts/smoke_test.py` (not just `/health`)
 
 ---
 

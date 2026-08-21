@@ -300,7 +300,7 @@ Local visibility via `docker-compose.yml` (not deployed to Render):
 
 ## Testing
 
-✅ **446 tests passing** — Unit + integration tests with 100% model mocking (no real model files needed).
+✅ **500 tests passing** — Unit + integration tests with 100% model mocking (no real model files needed).
 
 **→ See [`docs/TESTING.md`](docs/TESTING.md) for test strategy and audit results (49 new tests added 2026-08-17).**
 
@@ -311,10 +311,12 @@ Key tests:
 - Security (8): Error filtering, no internals leaking
 - Full pipeline (200+): URL features, HTML analysis, fusion, risk scoring
 
-## CI (`.github/workflows/ci.yml`)
+## CI (`.github/workflows/`)
 
-Runs on push/PR to `main`: checkout → Python 3.12 → `pip install -r requirements-dev.txt --extra-index-url https://download.pytorch.org/whl/cpu` → `ruff check .` → `pytest -v`.
+`ci.yml` runs on push/PR to `main`: checkout → Python 3.12 → `pip install -r requirements-dev.txt --extra-index-url https://download.pytorch.org/whl/cpu` → `ruff check .` → `pytest -v`.
 
 - `requirements-dev.txt` = `backend/requirements.txt` (CPU torch) + pinned `pytest`/`ruff` — deliberately *not* the root `requirements.txt`, which pins `torch==...+cu128` and would fail to resolve on a GPU-less GitHub Actions runner.
 - The `--extra-index-url` flag is required for the `+cpu` torch wheel to resolve; without it, `pip install` fails with "No matching distribution found".
 - No model files or `.env` secrets are needed for CI — `tests/conftest.py` mocks the RF/RoBERTa loaders before import, so the whole suite runs against the same mocks used locally.
+
+`smoke-test.yml` runs after a push to `main` (and on demand) and calls `scripts/smoke_test.py`, which hits the deployed `/predict` and checks the response carries a risk score and an ML prediction. It exists because `/health` and `/metadata` both returned 200 while `/predict` 502'd: `/metadata` only calls `.exists()` on the model files, and the pipeline degrades gracefully, so a backend with no working models still answers a well-formed 200. It needs the `SMOKE_BASE_URL`/`SMOKE_API_KEY` repository secrets and skips with a warning without them; it cannot tell which build Render is serving, so the trustworthy run is the manual one once the deploy is live. The script's validation logic is unit-tested in `backend/tests/test_smoke_test.py` and uses only the standard library, so the job doesn't install torch.
