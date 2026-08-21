@@ -30,7 +30,7 @@ jobs:
 
   test-suite:
     runs-on: ubuntu-latest
-    name: Test Suite (281 tests)
+    name: Test Suite
     needs: lint
 
     steps:

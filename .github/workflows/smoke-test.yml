@@ -1,0 +1,64 @@
+# Verifica que el backend desplegado *sirve análisis*, no solo que responde.
+#
+# Existe porque el servicio estuvo desplegado devolviendo 502 en /predict con
+# /health y /metadata en verde, y ningún check lo detectó: /metadata solo hace
+# .exists() sobre los ficheros de modelo, no dice si la inferencia cabe en
+# memoria. La única comprobación que vale es llamar a /predict.
+#
+# LIMITACIÓN, a tener presente al leer un check en verde: este job no sabe qué
+# build está sirviendo Render. Espera un rato tras el push y analiza lo que haya
+# respondiendo, que durante un build largo puede seguir siendo el despliegue
+# anterior. Para que fuera exacto haría falta que la API publicara el commit en
+# curso (RENDER_GIT_COMMIT) o sondear la API de Render con un token. Mientras
+# tanto, la ejecución fiable es la manual: lanzarla desde la pestaña Actions
+# cuando el dashboard de Render ya marque el despliegue como "live".
+name: Smoke test post-despliegue
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      espera_inicial:
+        description: "Segundos a esperar antes de empezar (0 si el deploy ya está live)"
+        required: false
+        default: "0"
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    name: /predict responde un análisis completo
+    env:
+      SMOKE_BASE_URL: ${{ secrets.SMOKE_BASE_URL }}
+      SMOKE_API_KEY: ${{ secrets.SMOKE_API_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      # Sin los secretos el job se omite en vez de fallar: un check en rojo
+      # permanente se aprende a ignorar, y entonces deja de avisar de nada.
+      - name: Comprobar configuración
+        id: guard
+        run: |
+          if [ -z "$SMOKE_BASE_URL" ]; then
+            echo "::warning::SMOKE_BASE_URL no está configurado; se omite el smoke test."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # El build de la imagen descarga ~821 MB de pesos desde Hugging Face, así
+      # que el despliegue tarda varios minutos desde el push.
+      - name: Esperar a que Render despliegue
+        if: steps.guard.outputs.run == 'true'
+        run: sleep "${{ github.event.inputs.espera_inicial || '420' }}"
+
+      - name: Smoke test
+        if: steps.guard.outputs.run == 'true'
+        run: python scripts/smoke_test.py --wait 300 --timeout 150

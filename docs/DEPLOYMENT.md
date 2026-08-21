@@ -45,12 +45,38 @@ ENVIRONMENT=production
 - Wait for `"healthy"` message (~60-90s first time, models download from HuggingFace)
 - Service is ready at `https://<service-name>.onrender.com`
 
-### 4. Test the API
+### 4. Verify the deploy
+
+**`/health` and `/metadata` are not a verification.** They have both returned 200
+on a service whose `/predict` was answering 502 — `/health` is a constant and
+`/metadata` only calls `.exists()` on the model files, which says nothing about
+whether inference fits in memory. Verifying a deploy means calling `/predict`:
 
 ```bash
-curl https://<service-name>.onrender.com/health
-curl https://<service-name>.onrender.com/metadata
+python scripts/smoke_test.py --base-url https://<service-name>.onrender.com
 ```
+
+It waits for the service to answer, runs a real analysis and checks the response
+carries a risk score and an ML prediction — the pipeline degrades gracefully, so
+a deploy with no working models still returns a well-formed 200. Exit code 0
+means the backend is actually serving analyses.
+
+If you set `API_KEY`, pass it too (`--api-key`, or the `SMOKE_API_KEY` env var).
+
+### Before changing anything that loads a model
+
+`scripts/memory_check.py` reproduces Render's constraint locally: the production
+image in a container capped at 512 MB, `ENVIRONMENT=production`, one worker.
+
+```bash
+python scripts/memory_check.py --concurrency 2
+```
+
+It fails if the kernel OOM-kills the container — the regression it guards. This
+is how the 502 was diagnosed: one request peaked at 395 MiB and fit fine, two
+concurrent ones hit 441 MiB and killed the worker, taking `/health` down with
+it. Not in CI: the build pulls ~821 MB of weights from HuggingFace, too much for
+a per-PR job.
 
 ### 5. Update Extension
 
@@ -77,8 +103,11 @@ curl https://<service-name>.onrender.com/metadata
 | `FACT_CHECK_API_KEY` | Google Fact Check Tools API | `ghi789...` |
 | `API_KEY` | Backend authentication (X-API-Key header) | `a7f3c9e2b1d4f6a8c5e2b9d1f4a7c3e5...` |
 | `FORWARDED_ALLOW_IPS` | Trust X-Forwarded-For from proxy | `*` (Render safe) |
-| `ENVIRONMENT` | `production` or `development` | `production` |
+| `ENVIRONMENT` | `production` or `development`. Does not affect model loading (always lazy); `production` refuses to boot without `API_KEY` and hides error internals | `production` |
 | `ALLOWED_ORIGINS` | Extra CORS origins (comma-separated) | `https://example.com,https://other.com` |
+| `MAX_CONCURRENT_ANALYSES` | Analyses allowed at once (shared by `/predict` and `/analyze-content`) | `1` (do not raise on 512 MB) |
+| `ANALYSIS_QUEUE_TIMEOUT` | Seconds queued before a 503 | `30` |
+| `LOG_LEVEL` | Root log level | `INFO` |
 
 ### Models on Render
 
@@ -273,6 +302,23 @@ Render free tier doesn't include monitoring; use third-party services.
 
 No manual setup needed — it's automatic.
 
+`.github/workflows/smoke-test.yml` then checks the deployed service actually
+serves analyses (see step 4). This one **does** need setup: add two repository
+secrets, otherwise the job logs a warning and skips rather than failing red.
+
+| Secret | Value |
+|---|---|
+| `SMOKE_BASE_URL` | `https://<service-name>.onrender.com` |
+| `SMOKE_API_KEY` | the same value as the service's `API_KEY` (omit if unset) |
+
+Caveat worth knowing before trusting a green check: the job cannot tell which
+build Render is serving. It waits a fixed interval after the push and analyses
+whatever answers, which during a long build may still be the previous deploy.
+The reliable run is the manual one — trigger it from the Actions tab once the
+Render dashboard shows the deploy as live. Making it exact would require the API
+to report the running commit (Render sets `RENDER_GIT_COMMIT`) or polling
+Render's API with a token.
+
 ---
 
 ## Pre-Deploy Checklist
@@ -286,6 +332,7 @@ No manual setup needed — it's automatic.
 - [ ] Created Web Service on Render
 - [ ] Configured all env vars in Render dashboard
 - [ ] Set `FORWARDED_ALLOW_IPS=*`
+- [ ] Verified the deploy with `scripts/smoke_test.py` (not just `/health`)
 
 ---
 

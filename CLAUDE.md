@@ -35,6 +35,17 @@ venv\Scripts\python -m pytest backend/tests/test_risk_engine.py -v
 - Clear `RateLimitMiddleware`'s `_rate_store` before every test — the limiter buckets by IP only (not by path), so without the reset, tests hitting `/predict`/`/analyze-content` in sequence would trip 429s from earlier tests.
 - Reset VirusTotal quota circuit breaker state before every test to prevent state leakage between tests (the circuit is global and affects all VT service calls).
 
+**Check /predict still fits in Render's 512 MB** (needs Docker; builds the production image, so the first run downloads ~821 MB of weights):
+```powershell
+venv\Scripts\python scripts\memory_check.py --concurrency 2
+```
+Fails if the kernel OOM-kills the container. Deliberately not in CI — the image build is too heavy for a per-PR job.
+
+**Verify a deployment** (`/health` and `/metadata` do *not* verify one — see "Memory budget" below):
+```powershell
+venv\Scripts\python scripts\smoke_test.py --base-url https://<service>.onrender.com
+```
+
 **Quick model smoke test (Random Forest):**
 ```powershell
 venv\Scripts\python -m backend.app.random_forest.test_predict
@@ -111,6 +122,9 @@ All three loaders resolve this directory via `get_models_dir()` in `backend/app/
 - `ALLOWED_ORIGINS` — extra CORS origins beyond the built-in chrome-extension/localhost regex
 - `EXPERIMENT_ROLLOUT` — fraction of traffic (0.0–1.0) routed to the candidate scoring variant; `0.0`/unset/out-of-range disables the experiment
 - `EXPERIMENT_VARIANT` — name reported for the candidate variant (default `candidate`)
+- `MAX_CONCURRENT_ANALYSES` — analyses allowed at once across `/predict` + `/analyze-content` (default `1`); above 1 on a 512 MB instance the worker gets OOM-killed, see "Memory budget" below
+- `ANALYSIS_QUEUE_TIMEOUT` — seconds a queued analysis waits before giving up with 503 (default `30`)
+- `LOG_LEVEL` — root log level (default `INFO`); an unrecognised value falls back to `INFO` rather than leaving the service silent
 - `MODELS_DIR` — overrides where model loaders look for `models/` (read directly via `os.getenv` in `backend/app/core/paths.py`, not through the `settings` singleton); defaults to `<repo root>/models`, set to `/models` in the Docker deployment
 
 ### All endpoints
@@ -204,7 +218,7 @@ docs/                      # Base del proyecto: mvp_scope.md, user_stories.md, d
 - `experiment.assign()` is deterministic by URL hash. Non-deterministic assignment would let the same URL return different verdicts, and the cache (which does not key on variant) would serve whichever landed first. Rollout defaults to 0.0, so the experiment is inert until `EXPERIMENT_ROLLOUT` is set.
 - `_safe(fn, *args)` in `phishing_service.py` wraps every parallel call; a failed sub-service returns `{"error": "..."}` and never crashes the pipeline.
 - All three model loaders (`random_forest/model_loader.py`, `roberta/model_loader.py`, `ContentClassifierService`) are lazy and download from HuggingFace Hub on first call — load via `@lru_cache`-wrapped `get_model()` on first call, not at import time. Downloaded models are cached locally in `./models`. If internet is unavailable or HuggingFace is unreachable, that signal fails via `_safe()` and doesn't crash the app.
-- Model warmup (`backend/app/core/model_warmup.py`) runs on startup only in `ENVIRONMENT=development` to prevent OOM on Render's 512MB limit. In production (`ENVIRONMENT=production`), models load lazily on first request (~30-60s).
+- `warmup_models()` (`backend/app/core/model_warmup.py`) loads nothing — it logs a line and returns. Loading is lazy in every environment, via the `@lru_cache`'d `get_model()` of each loader, so the first `/predict` after a restart pays ~30-60s. It does **not** branch on `ENVIRONMENT`; the name is a leftover from when it did, and eager warmup was removed because it OOM-killed the worker on Render's 512 MB.
 - `FusionEngine` gracefully degrades: if one model errors, it uses the other at full weight.
 - `ContentClassifierService` is lazy-loaded (via `@lru_cache`) on first call; uses HuggingFace model `hamzab/roberta-fake-news-classification` by default. Inputs under 300 characters short-circuit to a `no_content`/`UNKNOWN`/`0.0` result rather than being run through the model.
 - Label normalization in `ContentClassifierService`: model returns `TRUE/FALSE`, normalized to `REAL/FAKE`.
@@ -258,7 +272,7 @@ Quick summary:
 - Configure env vars:
   - `VIRUSTOTAL_API_KEY`, `SAFE_BROWSING_API_KEY`, `FACT_CHECK_API_KEY` — threat-intel APIs
   - `API_KEY` (optional) — backend authentication key
-  - `ENVIRONMENT` — `production` or `development` (controls model warmup strategy: lazy in production, eager in dev)
+  - `ENVIRONMENT` — `production` or `development`. Does **not** affect model loading (always lazy). In `production` the backend refuses to start without `API_KEY`, and error responses omit the `detail` field so internals don't leak
   - `FORWARDED_ALLOW_IPS=*` — allow X-Forwarded-For from Render's proxy
 - Models download from HuggingFace Hub during build (~60-90s cold start); lazy loading on first request in production
 - Enable Auto-Deploy on push to `main`
@@ -297,7 +311,7 @@ Local visibility via `docker-compose.yml` (not deployed to Render):
 
 ## Testing
 
-✅ **446 tests passing** — Unit + integration tests with 100% model mocking (no real model files needed).
+✅ **517 tests passing** — Unit + integration tests with 100% model mocking (no real model files needed).
 
 **→ See [`docs/TESTING.md`](docs/TESTING.md) for test strategy and audit results (49 new tests added 2026-08-17).**
 
@@ -308,10 +322,12 @@ Key tests:
 - Security (8): Error filtering, no internals leaking
 - Full pipeline (200+): URL features, HTML analysis, fusion, risk scoring
 
-## CI (`.github/workflows/ci.yml`)
+## CI (`.github/workflows/`)
 
-Runs on push/PR to `main`: checkout → Python 3.12 → `pip install -r requirements-dev.txt --extra-index-url https://download.pytorch.org/whl/cpu` → `ruff check .` → `pytest -v`.
+`ci.yml` runs on push/PR to `main`: checkout → Python 3.12 → `pip install -r requirements-dev.txt --extra-index-url https://download.pytorch.org/whl/cpu` → `ruff check .` → `pytest -v`.
 
 - `requirements-dev.txt` = `backend/requirements.txt` (CPU torch) + pinned `pytest`/`ruff` — deliberately *not* the root `requirements.txt`, which pins `torch==...+cu128` and would fail to resolve on a GPU-less GitHub Actions runner.
 - The `--extra-index-url` flag is required for the `+cpu` torch wheel to resolve; without it, `pip install` fails with "No matching distribution found".
 - No model files or `.env` secrets are needed for CI — `tests/conftest.py` mocks the RF/RoBERTa loaders before import, so the whole suite runs against the same mocks used locally.
+
+`smoke-test.yml` runs after a push to `main` (and on demand) and calls `scripts/smoke_test.py`, which hits the deployed `/predict` and checks the response carries a risk score and an ML prediction. It exists because `/health` and `/metadata` both returned 200 while `/predict` 502'd: `/metadata` only calls `.exists()` on the model files, and the pipeline degrades gracefully, so a backend with no working models still answers a well-formed 200. It needs the `SMOKE_BASE_URL`/`SMOKE_API_KEY` repository secrets and skips with a warning without them; it cannot tell which build Render is serving, so the trustworthy run is the manual one once the deploy is live. The script's validation logic is unit-tested in `backend/tests/test_smoke_test.py` and uses only the standard library, so the job doesn't install torch.
