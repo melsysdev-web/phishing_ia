@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from backend.app.core import experiment
+from backend.app.core.concurrency import analysis_slot
 from backend.app.core.security import require_api_key
 from backend.app.schemas.request_schema import FeedbackRequest, TextRequest, UrlRequest
 from backend.app.schemas.response_schema import (
@@ -30,10 +31,14 @@ router = APIRouter(dependencies=[Depends(require_api_key)])
         "Pipeline completo: WHOIS, HTML, VirusTotal, Safe Browsing, Fact Check, "
         "Random Forest y RoBERTa fusionados en un score 0-100. Resultado cacheado 10 min."
     ),
-    responses={500: {"model": ErrorResponse, "description": "Error interno no controlado"}},
+    responses={
+        500: {"model": ErrorResponse, "description": "Error interno no controlado"},
+        503: {"model": ErrorResponse, "description": "Cola de análisis saturada"},
+    },
 )
 def predict(request: UrlRequest):
-    return PhishingService.analyze(request.url)
+    with analysis_slot():
+        return PhishingService.analyze(request.url)
 
 
 @router.post(
@@ -42,10 +47,14 @@ def predict(request: UrlRequest):
     tags=["Análisis"],
     summary="Clasificar texto libre (REAL/FAKE)",
     description="Textos con menos de 300 caracteres devuelven verdict='no_content' sin clasificar.",
-    responses={500: {"model": ErrorResponse, "description": "Error interno no controlado"}},
+    responses={
+        500: {"model": ErrorResponse, "description": "Error interno no controlado"},
+        503: {"model": ErrorResponse, "description": "Cola de análisis saturada"},
+    },
 )
 def analyze_content(request: TextRequest):
-    return ContentClassifierService.analyze(request.text)
+    with analysis_slot():
+        return ContentClassifierService.analyze(request.text)
 
 
 @router.post(
