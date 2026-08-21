@@ -13,3 +13,8 @@ models/
 checkpoints/
 ~$*.docx
 ai-phishing-detector.zip
+ai-phishing-detector-*.zip
+# Bases SQLite locales de runtime (cache warm, feedback): se regeneran solas y
+# cambian en cada ejecución. url_cache.db quedó versionado por error; para
+# sacarlo del índice: git rm --cached url_cache.db
+*.db

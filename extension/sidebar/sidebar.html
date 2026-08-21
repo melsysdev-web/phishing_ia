@@ -76,6 +76,8 @@
           </div>
         </div>
 
+        <div class="verdict-confidence hidden" id="verdictConfidence"></div>
+
         <!-- Barra de puntuación -->
         <div class="score-bar-wrap">
           <div class="score-bar-track">
@@ -134,6 +136,16 @@
           <ul class="reasons-list" id="reasonsList"></ul>
         </div>
 
+        <!-- Corrección del usuario -->
+        <div class="feedback-section hidden" id="feedbackSection">
+          <div class="section-label">¿El veredicto es correcto?</div>
+          <div class="feedback-buttons">
+            <button class="btn-feedback safe" id="feedbackSafe">✅ Es seguro</button>
+            <button class="btn-feedback phishing" id="feedbackPhishing">🚨 Es phishing</button>
+          </div>
+          <p class="feedback-status" id="feedbackStatus"></p>
+        </div>
+
       </div>
     </div>
 
@@ -182,6 +194,7 @@
 
   </div>
 
+  <script src="../config.js"></script>
   <script src="../utils/error_messages.js"></script>
   <script src="../services/api_client.js"></script>
   <script src="sidebar.js"></script>

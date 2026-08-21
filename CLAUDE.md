@@ -109,6 +109,8 @@ All three loaders resolve this directory via `get_models_dir()` in `backend/app/
 - `FACT_CHECK_API_KEY` — Google Fact Check Tools API
 - `API_KEY` — backend's own auth key, checked against the `X-API-Key` request header (empty disables auth)
 - `ALLOWED_ORIGINS` — extra CORS origins beyond the built-in chrome-extension/localhost regex
+- `EXPERIMENT_ROLLOUT` — fraction of traffic (0.0–1.0) routed to the candidate scoring variant; `0.0`/unset/out-of-range disables the experiment
+- `EXPERIMENT_VARIANT` — name reported for the candidate variant (default `candidate`)
 - `MODELS_DIR` — overrides where model loaders look for `models/` (read directly via `os.getenv` in `backend/app/core/paths.py`, not through the `settings` singleton); defaults to `<repo root>/models`, set to `/models` in the Docker deployment
 
 ### All endpoints
@@ -117,6 +119,9 @@ All three loaders resolve this directory via `get_models_dir()` in `backend/app/
 |---|---|---|
 | `POST` | `/predict` | Full URL analysis pipeline, returns cached result if available |
 | `POST` | `/analyze-content` | Raw text only → `ContentClassifierService` (REAL/FAKE); texts under 300 chars return a `no_content`/`UNKNOWN` verdict rather than being classified |
+| `POST` | `/feedback` | Record a user correction of a verdict (URL stored SHA-256 hashed, never in clear) |
+| `GET` | `/feedback/stats` | Accumulated corrections, with false positives and false negatives counted separately |
+| `GET` | `/experiment/status` | Active scoring-experiment config (authenticated: traffic split is not published on `/metadata`) |
 | `GET` | `/health` | Liveness check used by the extension's connection test |
 | `GET` | `/` | Root sanity check |
 | `GET` | `/metadata` | API version, which ML model files are present on disk, and active rate-limit/cache config |
@@ -181,12 +186,22 @@ scripts/
   test_phishing_url.py         # ad-hoc single-URL check against phishing_detector/
   augment_roberta_dataset.py    # dataset augmentation for the RoBERTa URL trainer
 
-docs/                      # api.md, architecture.md, decision_tree.md, mvp_scope.md, testing_report.md, user_stories.md, changelog.md, presentacion.md
+docs/                      # Base del proyecto: mvp_scope.md, user_stories.md, decision_tree.md,
+                           #   testing_report.md, presentacion.md
+                           # Referencia técnica: api.md, architecture.md, changelog.md,
+                           #   DEPLOYMENT.md, TESTING.md, EXTENSION_STABILITY.md
+                           # Publicación: EDGE_ADDON_UPLOAD.md, EDGE_STORE_DESCRIPTIONS.md
 ```
 
 ## Key conventions
 
 - `RiskEngine` starts every URL at a score of **50** and applies positive/negative deltas from each signal. Final range is clamped to 0–100; ≥80 = LOW risk, ≥50 = MEDIUM, <50 = HIGH.
+- `RiskEngine` also returns calibration fields (`probability`, `probability_interval`, `confidence`, `score_interval`, `ml_agreement`, `num_signals`) via `confidence_calibration.py`. `confidence` is a **0–1 float** — it used to be an int equal to `score`, which conflated two concepts. These fields are `Optional` in `RiskAssessment` because the 30-day warm cache keeps serving entries written before they existed.
+- The hyphen penalty reads `num_hyphens_domain` (hostname only), not `num_hyphens` (whole URL). Counting the whole URL penalized any news/docs page with a long slug while letting `paypal-secure-login-verify.com` through. `num_hyphens` is kept unchanged because the Random Forest consumes it as `NumHyphens` and was trained on that distribution — redefining it would silently shift the model's inputs.
+- Dynamic delta scaling: the young-domain penalty is multiplied by `_YOUNG_DOMAIN_DAMPING` when VirusTotal *and* Safe Browsing both report clean, since legitimate newly-registered sites are the main false-positive source. A confirmed threat never triggers damping.
+- Signals inside `RiskEngine.calculate` are `[delta, text, kind]` lists (mutable) so the damping pass can rewrite them; `kind` tags the signals eligible for contextual scaling.
+- `feedback_store.py` hashes URLs with SHA-256 before persisting — the backend learns from corrections without recording which sites a user visits. Write failures are swallowed: a lost correction must not break the analysis the user asked for.
+- `experiment.assign()` is deterministic by URL hash. Non-deterministic assignment would let the same URL return different verdicts, and the cache (which does not key on variant) would serve whichever landed first. Rollout defaults to 0.0, so the experiment is inert until `EXPERIMENT_ROLLOUT` is set.
 - `_safe(fn, *args)` in `phishing_service.py` wraps every parallel call; a failed sub-service returns `{"error": "..."}` and never crashes the pipeline.
 - All three model loaders (`random_forest/model_loader.py`, `roberta/model_loader.py`, `ContentClassifierService`) are lazy and download from HuggingFace Hub on first call — load via `@lru_cache`-wrapped `get_model()` on first call, not at import time. Downloaded models are cached locally in `./models`. If internet is unavailable or HuggingFace is unreachable, that signal fails via `_safe()` and doesn't crash the app.
 - Model warmup (`backend/app/core/model_warmup.py`) runs on startup only in `ENVIRONMENT=development` to prevent OOM on Render's 512MB limit. In production (`ENVIRONMENT=production`), models load lazily on first request (~30-60s).
@@ -214,10 +229,22 @@ This ensures all changes are tested in CI before landing on main.
 
 ## 📚 Full Documentation
 
-- **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** — Pipeline flowchart, RiskEngine scoring, ML models, Chrome extension
+**Project basis** — what the project set out to do and how it is judged. Keep these in sync when behaviour changes:
+
+- **[`docs/mvp_scope.md`](docs/mvp_scope.md)** — Scope, objectives, what is in and out
+- **[`docs/user_stories.md`](docs/user_stories.md)** — User stories with acceptance criteria
+- **[`docs/decision_tree.md`](docs/decision_tree.md)** — Every RiskEngine delta, the damping rules and the calibrated output. **Update this whenever a score delta changes.**
+- **[`docs/testing_report.md`](docs/testing_report.md)** — Manual test cases plus what the automated suite covers
+- **[`docs/presentacion.md`](docs/presentacion.md)** — Project presentation and FAQ
+
+**Technical reference:**
+
+- **[`docs/architecture.md`](docs/architecture.md)** — Pipeline flowchart, RiskEngine scoring, ML models, Chrome extension
 - **[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)** — Step-by-step Render deployment, env vars, troubleshooting
 - **[`docs/TESTING.md`](docs/TESTING.md)** — Test audit results, new test coverage, running tests locally
-- **[`docs/API.md`](docs/API.md)** — Endpoint reference with curl examples
+- **[`docs/api.md`](docs/api.md)** — Endpoint reference with curl examples
+- **[`docs/EXTENSION_STABILITY.md`](docs/EXTENSION_STABILITY.md)** — Defensive code in the extension and the failures it absorbs
+- **[`SCORE_IMPROVEMENTS_STRATEGY.md`](SCORE_IMPROVEMENTS_STRATEGY.md)** — What the scoring work delivered, and what is blocked on labelled data
 - **[`docs/changelog.md`](docs/changelog.md)** — Recent changes and versions
 
 ---
@@ -237,6 +264,30 @@ Quick summary:
 - Enable Auto-Deploy on push to `main`
 - Service at `https://<service-name>.onrender.com`
 
+### Memory budget — why `/predict` was returning 502
+
+Model distribution is solved: the Dockerfile downloads the weights from `mel3601/phishing-ia-models` on Hugging Face during build and bakes them into the image at `/models` (`MODELS_DIR=/models`). That is why `/metadata` sees them.
+
+The failure was **RAM at inference time**, not distribution. Measured RSS per stage (local CUDA torch build; the Docker CPU wheel is smaller, but the per-model deltas hold):
+
+| Stage | Δ RSS |
+|---|---|
+| `import torch` | +470 MB (CUDA build; CPU wheel is materially smaller) |
+| `import transformers` + `fastapi` | +33 MB |
+| Random Forest (300 trees, depth 29, 321k nodes) | +156 MB |
+| RoBERTa URL, **with** `quantize_dynamic` | **+538 MB** (757 MB peak) |
+| RoBERTa URL, **without** quantization | **+115 MB** |
+
+`roberta_content` is *not* loaded by `/predict` — only `/analyze-content` touches it.
+
+**The int8 quantization was the cause.** It was added to speed up CPU inference, but to convert the weights it materializes all of them, spiking +735 MB, whereas safetensors otherwise maps the fp32 weights lazily. It bought 1.96 ms/URL (16.5%) in a pipeline that takes 3–8 s dominated by network I/O. Removing it cut `/predict` from 1213 MB to 791 MB. `torch.ao.quantization` is also deprecated and removed in torch 2.10. **Do not reintroduce it** — see the note in `roberta/model_loader.py`.
+
+Disabling warmup earlier did not fix the 502; it moved the allocation from startup to the first `/predict`, where the single worker (`WEB_CONCURRENCY=1`) was OOM-killed and took the whole service down with it.
+
+**`/metadata` reporting `"models": true` is not evidence that inference works** — it only calls `.exists()` on the files. Verifying a deployment requires calling `/predict`.
+
+Remaining gap: after the fix the non-torch footprint is ~320 MB; whether that plus the CPU torch wheel fits in 512 MB has not been measured on Render itself. If it still does not fit, the levers are a larger instance, or retraining the Random Forest with fewer than 300 trees (needs validation data to justify the accuracy tradeoff).
+
 ## Monitoring (Prometheus + Grafana, local only)
 
 Local visibility via `docker-compose.yml` (not deployed to Render):
@@ -246,7 +297,7 @@ Local visibility via `docker-compose.yml` (not deployed to Render):
 
 ## Testing
 
-✅ **324 tests passing** — Unit + integration tests with 100% model mocking (no real model files needed).
+✅ **446 tests passing** — Unit + integration tests with 100% model mocking (no real model files needed).
 
 **→ See [`docs/TESTING.md`](docs/TESTING.md) for test strategy and audit results (49 new tests added 2026-08-17).**
 

@@ -2,6 +2,8 @@ from urllib.parse import urlparse
 
 import tldextract
 
+from backend.app.services.confidence_calibration import create_calibrated_response
+
 # ── Listas de referencia ──────────────────────────────────────────────────────
 
 _BRAND_NAMES = {
@@ -52,6 +54,16 @@ _SUSPICIOUS_TLDS = {
 
 _TRUSTED_TLDS = {"com", "org", "edu", "gov", "net"}
 
+# Factor aplicado a la penalización por dominio nuevo cuando VirusTotal y Safe
+# Browsing coinciden en que la URL está limpia. No la anula: un dominio nuevo
+# sigue siendo más riesgoso, pero deja de dominar el score.
+_YOUNG_DOMAIN_DAMPING = 0.4
+
+# Guiones tolerados en el hostname. Uno o dos son normales en dominios
+# legítimos (mi-empresa.com); a partir de tres el patrón es el del phishing
+# que encadena marca y palabras señuelo.
+_MAX_DOMAIN_HYPHENS = 2
+
 _TRUSTED_CCTLDS = {
     "sv", "mx", "ar", "co", "br", "au", "uk", "de", "fr",
     "jp", "ca", "es", "it", "nl", "se", "ch", "pt", "cr",
@@ -74,8 +86,8 @@ class RiskEngine:
         _signals = []
         authoritative_threat = False
 
-        def _add(delta, text):
-            _signals.append((delta, text))
+        def _add(delta, text, kind=None):
+            _signals.append([delta, text, kind])
 
         # ── Extraer datos de URL una sola vez ─────────────────────────────────
         full_url   = url_features.get("full_url", "")
@@ -132,9 +144,12 @@ class RiskEngine:
         if url_features.get("contains_double_slash_redirect"):
             _add(-10, "Posible redirección sospechosa")
 
-        # ── Guiones excesivos ─────────────────────────────────────────────────
-        if url_features.get("num_hyphens", 0) > 3:
-            _add(-10, "Exceso de guiones en la URL")
+        # ── Guiones excesivos en el dominio ───────────────────────────────────
+        # Se miran sólo los del hostname: contarlos en toda la URL penalizaba
+        # cualquier noticia o documentación con slug largo, y dejaba pasar
+        # dominios como paypal-secure-login-verify.com por tener pocos en total.
+        if url_features.get("num_hyphens_domain", 0) > _MAX_DOMAIN_HYPHENS:
+            _add(-10, "Exceso de guiones en el dominio")
 
         # ── Suplantación de marca en subdominio ───────────────────────────────
         if ext and ext.subdomain:
@@ -153,9 +168,9 @@ class RiskEngine:
         age = domain_info.get("domain_age_days")
         if age is not None:
             if age < 30:
-                _add(-30, "Dominio creado hace menos de 30 días")
+                _add(-30, "Dominio creado hace menos de 30 días", "young_domain")
             elif age < 180:
-                _add(-15, "Dominio relativamente nuevo (menos de 6 meses)")
+                _add(-15, "Dominio relativamente nuevo (menos de 6 meses)", "young_domain")
             elif age > 3650:
                 _add(+20, "Dominio con más de 10 años de antigüedad")
             elif age > 365:
@@ -233,8 +248,28 @@ class RiskEngine:
             elif p <= 0.35:
                 _add(+10, f"ML: URL probablemente legítima ({round((1 - p) * 100)}% confianza)")
 
+        # ── Escalado dinámico: amortiguar señales contradichas ────────────────
+        # Un dominio recién registrado es la principal fuente de falsos
+        # positivos: los sitios legítimos nuevos comparten esa señal con el
+        # phishing. Cuando fuentes independientes (VirusTotal y Safe Browsing)
+        # lo dan por limpio, la penalización por edad pierde peso.
+        vt_clean = bool(
+            vt_result and "error" not in vt_result
+            and vt_result.get("verdict") == "clean"
+        )
+        sb_clean = bool(
+            sb_result and "error" not in sb_result
+            and not sb_result.get("is_threat")
+        )
+        if vt_clean and sb_clean and not authoritative_threat:
+            for signal in _signals:
+                if signal[2] == "young_domain":
+                    original = signal[0]
+                    signal[0] = round(original * _YOUNG_DOMAIN_DAMPING)
+                    signal[1] += " (atenuado: fuentes externas lo dan por limpio)"
+
         # ── Score final ───────────────────────────────────────────────────────
-        score = 50 + sum(delta for delta, _ in _signals)
+        score = 50 + sum(delta for delta, _, _ in _signals)
 
         # Si VT o Safe Browsing confirman amenaza real, garantizar HIGH
         if authoritative_threat:
@@ -244,7 +279,7 @@ class RiskEngine:
 
         # Razones ordenadas por impacto; ML tiene prioridad en empates
         reasons = [
-            text for _, text in sorted(
+            text for _, text, _ in sorted(
                 _signals,
                 key=lambda x: (-abs(x[0]), 0 if x[1].startswith("ML:") else 1)
             )
@@ -258,10 +293,24 @@ class RiskEngine:
         else:
             risk = "HIGH"
 
-        return {
-            "risk": risk,
-            "confidence": score,
-            "score": score,
-            "reasons": reasons,
-        }
+        # ── Calibración: probabilidad e incertidumbre ─────────────────────────
+        ml_agreement = 1.0
+        if ml_result and "error" not in ml_result:
+            ml_agreement = ml_result.get("model_agreement", 1.0)
+
+        calibrated = create_calibrated_response(
+            score=score,
+            risk_level=risk,
+            ml_agreement=ml_agreement,
+            num_signals=len(_signals),
+            reasons=reasons,
+        )
+
+        # Una amenaza confirmada por VT/GSB no admite incertidumbre: el score
+        # ya fue forzado a HIGH, así que el intervalo no debe sugerir lo contrario.
+        if authoritative_threat:
+            calibrated["confidence"] = 1.0
+            calibrated["score_interval"] = {"lower": 0, "upper": score}
+
+        return calibrated
 

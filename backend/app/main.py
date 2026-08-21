@@ -12,7 +12,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
-from backend.app.core import torch_config
+from backend.app.core import concurrency, torch_config
 from backend.app.core.config import settings
 from backend.app.core.model_warmup import warmup_models
 from backend.app.core.paths import get_models_dir
@@ -47,6 +47,10 @@ app_startup_seconds = Gauge(
 
 @asynccontextmanager
 async def _lifespan(_: FastAPI):
+    # No se publica en /metadata (endpoint sin autenticar): saber que solo cabe
+    # un análisis a la vez le ahorra el trabajo a quien quiera saturarlo. En el
+    # log de arranque queda visible para verificar un despliegue.
+    logger.info("Límite de análisis simultáneos: %s", concurrency.status())
     # Warm up ML models on startup to prevent OOM on concurrent requests
     warmup_models()
     app_startup_seconds.set(time.time() - _process_start_time)

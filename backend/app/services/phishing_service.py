@@ -2,6 +2,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from backend.app.analyzers.html_analyzer import HtmlAnalyzer
+from backend.app.core import experiment
 from backend.app.ml.fusion.fusion_engine import FusionEngine
 from backend.app.random_forest.predictor import RandomForestPredictor
 from backend.app.roberta.predictor import RobertaPredictor
@@ -101,6 +102,9 @@ class PhishingService:
             "url": url,
             "cached": False,
             "analysis_time_ms": round((time.time() - t0) * 1000),
+            # Qué variante de scoring produjo este veredicto. Se devuelve para
+            # que el feedback del usuario pueda atribuirse a la variante correcta.
+            "scoring_variant": experiment.assign(url),
 
             "risk_assessment":       risk_result,
 

@@ -36,10 +36,10 @@ async function testBackendConnection() {
   try {
     // Get backend URL from storage
     const config = await new Promise(resolve => {
-      chrome.storage.local.get({ backendUrl: "http://localhost:8000" }, resolve);
+      chrome.storage.local.get({ backendUrl: BACKEND_DEFAULT_URL }, resolve);
     });
 
-    const backendUrl = config.backendUrl || "http://localhost:8000";
+    const backendUrl = config.backendUrl || BACKEND_DEFAULT_URL;
     const healthUrl = backendUrl.replace(/\/$/, "") + "/health";
 
     // Test connection with timeout

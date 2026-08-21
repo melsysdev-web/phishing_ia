@@ -17,9 +17,14 @@ def mock_safe_response():
         "url": "https://www.google.com",
         "risk_assessment": {
             "risk": "LOW",
-            "confidence": 90,
             "score": 90,
-            "reasons": ["HTTPS válido", "TLD confiable: .com", "Dominio con más de 10 años"]
+            "reasons": ["HTTPS válido", "TLD confiable: .com", "Dominio con más de 10 años"],
+            "probability": 0.06,
+            "probability_interval": {"lower": 0.0, "upper": 0.3},
+            "confidence": 0.9,
+            "score_interval": {"lower": 78, "upper": 100},
+            "ml_agreement": 0.95,
+            "num_signals": 3,
         },
         "machine_learning": {
             "fusion": {
@@ -70,13 +75,18 @@ def mock_phishing_response():
         "url": "http://192.168.1.1/login@paypal.com",
         "risk_assessment": {
             "risk": "HIGH",
-            "confidence": 5,
             "score": 5,
             "reasons": [
                 "No utiliza HTTPS",
                 "Uso de dirección IP en lugar de dominio",
                 "Contiene símbolo @"
-            ]
+            ],
+            "probability": 0.97,
+            "probability_interval": {"lower": 0.7, "upper": 1.0},
+            "confidence": 0.95,
+            "score_interval": {"lower": 0, "upper": 17},
+            "ml_agreement": 0.9,
+            "num_signals": 3,
         },
         "machine_learning": {
             "fusion": {

@@ -3,6 +3,28 @@ from typing import Any, Optional
 from pydantic import BaseModel, ConfigDict
 
 
+class Interval(BaseModel):
+    lower: float
+    upper: float
+
+
+class RiskAssessment(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    risk: Optional[str] = None
+    score: Optional[int] = None
+    reasons: list[str] = []
+    # Calibración: probabilidad de phishing e incertidumbre asociada.
+    # Opcionales porque el cache warm persiste 30 días: tras un deploy siguen
+    # sirviéndose entradas escritas por la versión anterior, sin estos campos.
+    probability: Optional[float] = None
+    probability_interval: Optional[Interval] = None
+    confidence: Optional[float] = None
+    score_interval: Optional[Interval] = None
+    ml_agreement: Optional[float] = None
+    num_signals: Optional[int] = None
+
+
 class PredictResponse(BaseModel):
     # Sub-diccionarios tipados como dict: cada señal puede degradarse a
     # {"error": "..."} si su sub-servicio falla (ver _safe() en phishing_service.py).
@@ -11,7 +33,9 @@ class PredictResponse(BaseModel):
     url: str
     cached: bool
     analysis_time_ms: Optional[int] = None
-    risk_assessment: dict
+    # Ausente en entradas cacheadas por versiones previas al experimento.
+    scoring_variant: Optional[str] = None
+    risk_assessment: RiskAssessment
     machine_learning: dict
     html_analysis: dict
     url_features: dict
@@ -30,6 +54,25 @@ class ContentAnalysisResponse(BaseModel):
     confidence: Optional[float] = None
     raw_label: Optional[str] = None
     error: Optional[str] = None
+
+
+class FeedbackResponse(BaseModel):
+    recorded: bool
+    total: int
+
+
+class ExperimentStatusResponse(BaseModel):
+    enabled: bool
+    rollout: float
+    variant: str
+    control: str
+
+
+class FeedbackStatsResponse(BaseModel):
+    total: int
+    false_positives: int
+    false_negatives: int
+    by_predicted_risk: dict
 
 
 class CacheStatsResponse(BaseModel):
