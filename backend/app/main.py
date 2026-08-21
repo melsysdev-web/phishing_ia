@@ -12,10 +12,15 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
-from backend.app.core import concurrency, torch_config
+from backend.app.core import concurrency, logging_config, torch_config
 from backend.app.core.config import settings
 from backend.app.core.model_warmup import warmup_models
 from backend.app.core.paths import get_models_dir
+
+# Lo primero: sin esto el root logger no tiene handlers y todo lo que registre
+# el proyecto se descarta en silencio. Va antes que el resto del arranque para
+# que los avisos de configuración y de carga de modelos ya se vean.
+logging_config.configure()
 
 # Debe ejecutarse antes de que cualquier import transitivo cargue un modelo
 # torch (routes -> phishing_service -> roberta/model_loader) — los loaders son
@@ -47,6 +52,13 @@ app_startup_seconds = Gauge(
 
 @asynccontextmanager
 async def _lifespan(_: FastAPI):
+    # Identifica qué se está ejecutando realmente. Un despliegue de Render solo
+    # se puede verificar por el log y por /predict: /metadata dice qué ficheros
+    # de modelo existen en disco, no si la inferencia cabe en memoria.
+    logger.info(
+        "Arranque: version=%s environment=%s models_dir=%s",
+        app.version, settings.environment, get_models_dir(),
+    )
     # No se publica en /metadata (endpoint sin autenticar): saber que solo cabe
     # un análisis a la vez le ahorra el trabajo a quien quiera saturarlo. En el
     # log de arranque queda visible para verificar un despliegue.

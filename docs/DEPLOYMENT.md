@@ -79,6 +79,9 @@ curl https://<service-name>.onrender.com/metadata
 | `FORWARDED_ALLOW_IPS` | Trust X-Forwarded-For from proxy | `*` (Render safe) |
 | `ENVIRONMENT` | `production` or `development` | `production` |
 | `ALLOWED_ORIGINS` | Extra CORS origins (comma-separated) | `https://example.com,https://other.com` |
+| `MAX_CONCURRENT_ANALYSES` | Analyses allowed at once (shared by `/predict` and `/analyze-content`) | `1` (do not raise on 512 MB) |
+| `ANALYSIS_QUEUE_TIMEOUT` | Seconds queued before a 503 | `30` |
+| `LOG_LEVEL` | Root log level | `INFO` |
 
 ### Models on Render
 

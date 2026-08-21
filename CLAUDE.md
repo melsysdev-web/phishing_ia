@@ -111,6 +111,9 @@ All three loaders resolve this directory via `get_models_dir()` in `backend/app/
 - `ALLOWED_ORIGINS` — extra CORS origins beyond the built-in chrome-extension/localhost regex
 - `EXPERIMENT_ROLLOUT` — fraction of traffic (0.0–1.0) routed to the candidate scoring variant; `0.0`/unset/out-of-range disables the experiment
 - `EXPERIMENT_VARIANT` — name reported for the candidate variant (default `candidate`)
+- `MAX_CONCURRENT_ANALYSES` — analyses allowed at once across `/predict` + `/analyze-content` (default `1`); above 1 on a 512 MB instance the worker gets OOM-killed, see "Memory budget" below
+- `ANALYSIS_QUEUE_TIMEOUT` — seconds a queued analysis waits before giving up with 503 (default `30`)
+- `LOG_LEVEL` — root log level (default `INFO`); an unrecognised value falls back to `INFO` rather than leaving the service silent
 - `MODELS_DIR` — overrides where model loaders look for `models/` (read directly via `os.getenv` in `backend/app/core/paths.py`, not through the `settings` singleton); defaults to `<repo root>/models`, set to `/models` in the Docker deployment
 
 ### All endpoints
