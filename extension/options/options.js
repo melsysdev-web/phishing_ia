@@ -1,4 +1,5 @@
-const DEFAULT_BACKEND = "https://phishing-ia-2.onrender.com";
+// Definida en extension/config.js, cargado antes que este script.
+const DEFAULT_BACKEND = BACKEND_DEFAULT_URL;
 
 function isLocalhost(url) {
   try {

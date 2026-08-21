@@ -10,7 +10,7 @@ AI Phishing Detector analiza, a petición explícita del usuario (no de forma au
 
 Cuando el usuario pulsa "Analizar" en el popup o el panel lateral:
 
-- La **URL de la pestaña activa** (o la URL introducida manualmente) se envía al backend de AI Phishing Detector (`https://phishing-ia-2.onrender.com` por defecto, configurable en la página de opciones).
+- La **URL de la pestaña activa** (o la URL introducida manualmente) se envía al backend de AI Phishing Detector (`https://phishing-ia-smmy.onrender.com` por defecto, configurable en la página de opciones).
 - El backend descarga el HTML público de esa URL para extraer características (formularios, campos ocultos, etc.) y consulta:
   - **VirusTotal** (Google/Chronicle) — reputación de la URL
   - **Google Safe Browsing** — listas de sitios maliciosos
