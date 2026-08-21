@@ -1,6 +1,6 @@
 # Política de privacidad — AI Phishing Detector
 
-Última actualización: 2026-08-14
+Última actualización: 2026-08-21
 
 ## Qué hace la extensión
 
@@ -22,12 +22,13 @@ No se envían credenciales, historial de navegación completo, ni datos de otras
 
 ## Qué se almacena
 
-- **En tu navegador**: la URL del backend y, si la configuraste, tu API key, guardadas localmente vía `chrome.storage.sync` (sincronizadas por Chrome con tu cuenta de Google si tienes el sync activado). Ambas quedan bajo tu control desde la página de Opciones de la extensión.
+- **En tu navegador**: la URL del backend y, si la configuraste, tu API key, guardadas vía `chrome.storage.local`. Se quedan en este equipo: no se sincronizan con tu cuenta de Google ni con otros dispositivos. Ambas quedan bajo tu control desde la página de Opciones de la extensión.
 - **En el backend**: los resultados de análisis se cachean en memoria hasta 10 minutos (máx. 500 entradas) solo para acelerar consultas repetidas de la misma URL, y se pierden al reiniciar el servidor. No hay base de datos ni almacenamiento permanente de URLs o textos analizados.
+- **En los registros del servidor**: como cualquier servicio web, el backend registra los datos técnicos de cada petición — método, ruta, código de respuesta, tiempo de proceso y dirección IP de origen — para diagnosticar fallos y aplicar el límite de peticiones. **La URL y el texto analizados no aparecen en esos registros**, solo la ruta (`/predict`, `/analyze-content`). Los conserva el proveedor de alojamiento (Render) durante su periodo de retención y no se cruzan con ningún identificador de usuario.
 
 ## Con quién se comparten los datos
 
-Únicamente con los servicios de terceros listados arriba (VirusTotal, Google Safe Browsing, Google Fact Check Tools, WHOIS), y solo la URL/dominio necesario para obtener su veredicto. No se venden ni se comparten datos con fines publicitarios. No hay seguimiento (tracking) ni analítica de uso del usuario.
+Únicamente con los servicios de terceros listados arriba (VirusTotal, Google Safe Browsing, Google Fact Check Tools, WHOIS), y solo la URL/dominio necesario para obtener su veredicto. No se venden ni se comparten datos con fines publicitarios. No hay seguimiento (tracking) ni analítica de uso del usuario más allá del registro técnico de peticiones descrito arriba.
 
 ## Permisos que solicita la extensión
 
