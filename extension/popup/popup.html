@@ -4,12 +4,13 @@
   <meta charset="UTF-8" />
   <title>AI Phishing Detector</title>
   <link rel="stylesheet" href="popup.css" />
-  <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
 </head>
 <body>
   <div class="container">
 
-    <!-- Polyfill para anime.js en caso de que no cargue desde CDN -->
+    <!-- Stub de anime.js. Manifest V3 prohibe cargar codigo remoto, asi que
+         el CDN se retiro; la CSP ya lo bloqueaba y este stub era lo que corria
+         en la practica. Las llamadas a anime() quedan inertes. -->
     <script>
       if (!window.anime) {
         window.anime = function() { return {}; };

@@ -110,14 +110,16 @@ Results are cached in-memory (TTL 10 min, max 500 entries) keyed by URL.
 
 ### ML models
 
-| File | Used by | Versioning |
+| File | Used by | Where the weights live |
 |---|---|---|
 | `random_forest_v2.pkl` | `RandomForestPredictor` — predicts phishing from 34 URL/HTML features | HuggingFace Hub |
 | `feature_columns_v2.pkl` | column order for the RF model | HuggingFace Hub |
 | `roberta_phishing_new/` | `RobertaPredictor` — fine-tuned `distilroberta-base` on URL strings | HuggingFace Hub |
 | `roberta_content/` | `ContentClassifierService` — FAKE/REAL news classifier (falls back to `hamzab/roberta-fake-news-classification` if dir missing) | HuggingFace Hub |
 
-All three loaders resolve this directory via `get_models_dir()` in `backend/app/core/paths.py`, which defaults to `<repo root>/models` and can be overridden with the `MODELS_DIR` env var (used by the Docker deployment, see "Deployment" below). Model files are versioned on HuggingFace Hub and downloaded/cached on first use.
+All three loaders resolve this directory via `get_models_dir()` in `backend/app/core/paths.py`, which defaults to `<repo root>/models` and can be overridden with the `MODELS_DIR` env var (used by the Docker deployment, see "Deployment" below).
+
+The weights are versioned on HuggingFace Hub (`mel3601/phishing-ia-models`), but **the loaders do not download them**: `random_forest/model_loader.py` calls `joblib.load` on a local path and `roberta/model_loader.py` calls `from_pretrained` on a local directory. The download happens once in `backend/Dockerfile` at *build* time via `snapshot_download`, baking the weights into the image. Locally you must supply `models/` yourself — copy it, pull it from the Hub, or retrain. The one runtime download is `ContentClassifierService`, which falls back to the hub id `hamzab/roberta-fake-news-classification` when `models/roberta_content/` is absent.
 
 ### External APIs (env vars in `.env`)
 
@@ -224,7 +226,7 @@ docs/                      # Base del proyecto: mvp_scope.md, user_stories.md, d
 - `feedback_store.py` hashes URLs with SHA-256 before persisting — the backend learns from corrections without recording which sites a user visits. Write failures are swallowed: a lost correction must not break the analysis the user asked for.
 - `experiment.assign()` is deterministic by URL hash. Non-deterministic assignment would let the same URL return different verdicts, and the cache (which does not key on variant) would serve whichever landed first. Rollout defaults to 0.0, so the experiment is inert until `EXPERIMENT_ROLLOUT` is set.
 - `_safe(fn, *args)` in `phishing_service.py` wraps every parallel call; a failed sub-service returns `{"error": "..."}` and never crashes the pipeline.
-- All three model loaders (`random_forest/model_loader.py`, `roberta/model_loader.py`, `ContentClassifierService`) are lazy and download from HuggingFace Hub on first call — load via `@lru_cache`-wrapped `get_model()` on first call, not at import time. Downloaded models are cached locally in `./models`. If internet is unavailable or HuggingFace is unreachable, that signal fails via `_safe()` and doesn't crash the app.
+- All three model loaders (`random_forest/model_loader.py`, `roberta/model_loader.py`, `ContentClassifierService`) are lazy: they load via an `@lru_cache`-wrapped `get_model()` on first call, not at import time. They read from `get_models_dir()` on disk — they do **not** fetch from HuggingFace Hub (the Dockerfile does that at build time). The exception is `ContentClassifierService`, which passes a hub id when the local directory is missing and therefore does download at runtime. A missing or unreadable model fails via `_safe()` and doesn't crash the app.
 - `warmup_models()` (`backend/app/core/model_warmup.py`) loads nothing — it logs a line and returns. Loading is lazy in every environment, via the `@lru_cache`'d `get_model()` of each loader, so the first `/predict` after a restart pays ~30-60s. It does **not** branch on `ENVIRONMENT`; the name is a leftover from when it did, and eager warmup was removed because it OOM-killed the worker on Render's 512 MB.
 - `FusionEngine` gracefully degrades: if one model errors, it uses the other at full weight.
 - `ContentClassifierService` is lazy-loaded (via `@lru_cache`) on first call; uses HuggingFace model `hamzab/roberta-fake-news-classification` by default. Inputs under 300 characters short-circuit to a `no_content`/`UNKNOWN`/`0.0` result rather than being run through the model.
@@ -319,7 +321,7 @@ Local visibility via `docker-compose.yml` (not deployed to Render):
 
 ## Testing
 
-✅ **517 tests passing** — Unit + integration tests with 100% model mocking (no real model files needed).
+✅ **535 tests passing** — Unit + integration tests with 100% model mocking (no real model files needed).
 
 **→ See [`docs/TESTING.md`](docs/TESTING.md) for test strategy and audit results (49 new tests added 2026-08-17).**
 

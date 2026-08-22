@@ -6,7 +6,7 @@ Complete overview of testing approach and audit findings (2026-08-17).
 
 ## Test Suite Status
 
-✅ **281 tests passing** | 0 failures | 100% CI passing
+✅ **535 tests passing** | 0 failures | 100% CI passing
 
 ```
 backend/tests/      — Unit tests (services, analyzers, ML)

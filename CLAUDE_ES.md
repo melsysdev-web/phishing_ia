@@ -19,7 +19,7 @@ Guía concisa en español para trabajar con este proyecto en Claude Code.
 venv\Scripts\uvicorn backend.app.main:app --reload     # http://localhost:8000
 
 # Pruebas
-venv\Scripts\python -m pytest                           # Suite completa (324+ tests)
+venv\Scripts\python -m pytest                           # Suite completa (535 tests)
 venv\Scripts\python -m pytest backend/tests/test_risk_engine.py -v  # Test individual
 
 # Linting
@@ -59,7 +59,7 @@ Cache en memoria: TTL 10 min, máx 500 URLs.
 | `GET /metadata` | Versión API + modelos presentes |
 | `DELETE /cache` | Limpiar caché |
 
-**Seguridad**: Todos detrás `require_api_key` (header `X-API-Key`, configurable en `backend/app/core/config.py`). CORS regex para `chrome-extension://` + localhost. Rate limit: 30 req/60s por IP.
+**Seguridad**: Todos detrás `require_api_key` (header `X-API-Key`, configurable en `backend/app/core/config.py`); con `API_KEY` vacía la comprobación es un no-op, que es como corre el despliegue público. CORS regex para `chrome-extension://` + localhost. Rate limit: 30 req/60s por IP.
 
 ### ML Models
 
@@ -105,7 +105,7 @@ Esto asegura que todos los cambios pasen CI antes de llegar a main.
 
 ## 🧪 Testing & CI
 
-✅ **324 tests**: Todos passing
+✅ **535 tests**: Todos passing
 
 - **Suite**: `pytest` con conftest que:
   - Mocka todos los modelos ML
@@ -124,7 +124,10 @@ Quick:
 - Dockerfile path: `backend/Dockerfile`
 - Env vars:
   - `VIRUSTOTAL_API_KEY`, `SAFE_BROWSING_API_KEY`, `FACT_CHECK_API_KEY` — threat-intel APIs
-  - `API_KEY` (opt) — autenticación backend
+  - `API_KEY` (opt) — autenticación backend. **Vacía en producción a propósito**:
+    la extensión se publica en una tienda y no puede guardar un secreto
+  - `ALLOW_UNAUTHENTICATED` — declara que el backend público es una decisión;
+    sin ella, `ENVIRONMENT=production` sin `API_KEY` aborta el arranque
   - `ENVIRONMENT` — `production` o `development` (controla warmup: lazy en prod, eager en dev)
   - `FORWARDED_ALLOW_IPS=*` — permitir X-Forwarded-For del proxy de Render
 - Models descargan HF Hub en build (~60-90s); lazy loading en primer request en producción
@@ -150,7 +153,10 @@ Quick:
 **Services** (`extension/services/`): API client  
 **Options** (`extension/options/`): Backend URL + API key config
 
-Animaciones: anime.js, 60 FPS, stagger cascade effects (50-80ms), gauge fill 1200ms.
+Sin animaciones: anime.js se cargaba desde un CDN, Manifest V3 prohíbe el código remoto
+y la CSP ya lo bloqueaba. Se retiró (2026-08-21); el stub que queda deja las llamadas
+a `anime()` inertes y la UI renderiza al instante. La extensión no pide ningún host
+salvo su propio backend.
 
 ---
 
@@ -196,4 +202,4 @@ extension/                # Chrome extension (Manifest V3)
 
 **Actualizado**: 2026-08-25  
 **Status**: Producción  
-**Tests**: 324/324 passing (VT circuit breaker fix applied)
+**Tests**: 535/535 passing

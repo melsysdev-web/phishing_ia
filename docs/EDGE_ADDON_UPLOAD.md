@@ -1,8 +1,12 @@
 # 📦 Microsoft Edge Add-ons Upload Guide
 
-**Version**: 1.0.2 (Updated with UI Redesign)  
-**Release Date**: 2026-08-25  
-**ZIP File**: `phishing-detector-extension.zip` (30 KB)
+**Version**: 1.0.0 (nueva ficha en la tienda, no una actualización)  
+**Actualizado**: 2026-08-21  
+**ZIP**: `ai-phishing-detector-1.0.0.zip` (37,7 KB), generado con `.\scripts\package_extension.ps1`
+
+> Los textos de la ficha —descripciones, propósito único, justificación de cada
+> permiso y notas para certificación— están en
+> [`EDGE_STORE_DESCRIPTIONS.md`](EDGE_STORE_DESCRIPTIONS.md).
 
 ---
 
@@ -117,7 +121,6 @@ animations and smooth interactions. Completely free and open-source.
 - Google Safe Browsing (real-time threats)
 - Google Fact Check (misinformation detection)
 - HTTPS validation and domain age checks
-- Smooth animations powered by anime.js
 
 ### Content Analysis
 - Fake news / real content detection
@@ -175,24 +178,24 @@ Or create one if doesn't exist (see template below)
 
 ### Step 7: Version Information
 
-**Version Number**: `1.0.2`
+**Version Number**: `1.0.0`
 
 **Release Notes**:
 ```
-## v1.0.2 - UI Redesign & Animation Update (2026-08-25)
+## v1.0.0 - Primera publicación (2026-08-21)
 
-### ✨ New Features
-- Redesigned UI with flat design aesthetic
-- Smooth animations powered by anime.js library
-- Improved visual hierarchy and spacing
-- Better hover effects and micro-interactions
+### Qué hace
+- Análisis de URL con dos modelos de aprendizaje automático (Random Forest y
+  RoBERTa) combinados con VirusTotal, Google Safe Browsing y datos de registro
+  del dominio
+- Puntuación de riesgo de 0 a 100 con los motivos concretos de cada veredicto
+- Análisis de texto de la página para detectar contenido fabricado o engañoso
+- Historial local de los últimos 10 análisis, borrable por el usuario
 
-### 🎬 Animation Updates
-- Gauge fill animation (1200ms smooth)
-- Staggered cascade for reasons and signals
-- Synchronized score bar and counter
-- Bounce effects for badges and icons
-- Smooth state transitions
+### Privacidad
+- Nada se analiza sin que el usuario lo pida: no hay análisis automático
+- Solo sale del navegador la URL o el texto que el usuario envía
+- Sin cuentas, sin rastreadores, sin publicidad
 
 ### 🐛 Bug Fixes
 - Fixed deprecated datetime.utcnow() usage
@@ -289,7 +292,7 @@ Microsoft will check:
 **Solution**:
 ```json
 Check extension/manifest.json:
-- version: "1.0.2"
+- version: "1.0.0"
 - manifest_version: 3
 - name: "AI Phishing Detector"
 - permissions array present
@@ -331,7 +334,9 @@ Update manifest.json permissions with clear justification in description
 **If occurs**:
 1. Request manual review
 2. Link to GitHub repo for verification
-3. Explain anime.js CDN usage (only external dependency)
+3. Point out that the extension loads no remote code and contacts no host
+   other than its own backend (the anime.js CDN was removed on 2026-08-21;
+   Manifest V3 forbids remote code and the CSP was already blocking it)
 
 ---
 
@@ -404,9 +409,9 @@ For future updates:
 ### Common Update Cycle
 
 ```
-v1.0.2 - Initial with anime.js redesign (Current)
-v1.0.3 - Bug fixes and performance tweaks (Next)
-v1.1.0 - Major feature additions (Planned)
+v1.0.0 - Primera publicación (actual)
+v1.0.1 - Correcciones y ajustes (siguiente)
+v1.1.0 - Funciones nuevas (planificado)
 ```
 
 ---

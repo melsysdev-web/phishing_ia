@@ -120,6 +120,18 @@ Get-ChildItem $src -Recurse -Include *.html, *.js | ForEach-Object {
 }
 Ok "referencias de <script src> e importScripts resueltas"
 
+# --- 5b. codigo remoto ------------------------------------------------------
+# Manifest V3 prohibe cargar codigo remoto y las tiendas rechazan por ello de
+# forma automatica. La CSP ademas lo bloquea en ejecucion, asi que un <script
+# src="https://..."> no funciona Y provoca el rechazo.
+Get-ChildItem $src -Recurse -Include *.html | ForEach-Object {
+    $c = Get-Content $_.FullName -Raw -Encoding UTF8
+    foreach ($m in [regex]::Matches($c, '<script[^>]+src="(https?://[^"]+)"')) {
+        Fail "$($_.Name) carga codigo remoto: $($m.Groups[1].Value) -- Manifest V3 lo prohibe"
+    }
+}
+Ok "sin codigo remoto"
+
 if ($errors.Count -gt 0) {
     Write-Host "`n$($errors.Count) problema(s). No se genera el ZIP.`n" -ForegroundColor Red
     exit 1

@@ -16,7 +16,7 @@ Runs on **every push** and **pull requests to main**.
 - **Fails PR if linting errors found**
 
 #### 2. **Test Suite** (Ubuntu Latest, depends on Lint)
-Runs **281 tests** across multiple test categories:
+Runs **535 tests** across multiple test categories:
 
 **Full Coverage**:
 - `pytest -v` — all tests with coverage tracking

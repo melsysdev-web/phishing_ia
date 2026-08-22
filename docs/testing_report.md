@@ -166,7 +166,7 @@
 ## Suite automatizada
 
 Los casos de arriba son pruebas manuales. En paralelo corre una suite de
-**446 tests** (`venv\Scripts\python -m pytest`), sin necesidad de modelos ni
+**535 tests** (`venv\Scripts\python -m pytest`), sin necesidad de modelos ni
 claves reales: `tests/conftest.py` sustituye los cargadores de modelos antes
 de que se importe el backend.
 
