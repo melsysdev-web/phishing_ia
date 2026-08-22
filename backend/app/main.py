@@ -68,13 +68,39 @@ async def _lifespan(_: FastAPI):
     app_startup_seconds.set(time.time() - _process_start_time)
     yield
 
-# Falla rápido si el backend se despliega en producción sin autenticación.
-if settings.environment == "production" and not settings.api_key:
-    raise RuntimeError(
-        "ENVIRONMENT=production requiere API_KEY configurada en .env "
-        "(ver backend/app/core/security.py — sin ella, /predict y /analyze-content "
-        "quedan sin autenticación)."
+def verify_auth_config(cfg) -> None:
+    """Aborta el arranque si producción quedó sin autenticación por descuido.
+
+    El caso deliberado existe y hay que permitirlo: la extensión se publica en
+    una tienda, y un paquete descargable no puede guardar un secreto, así que
+    exigirle una clave solo daría una falsa sensación de control. Se declara con
+    ALLOW_UNAUTHENTICATED.
+
+    Lo que no vale es esquivar la comprobación quitando ENVIRONMENT=production:
+    eso arrastraría consigo el filtrado de internals en las respuestas de error,
+    que no tiene nada que ver con la autenticación.
+    """
+    if cfg.environment != "production" or cfg.api_key:
+        return
+
+    if not cfg.allow_unauthenticated:
+        raise RuntimeError(
+            "ENVIRONMENT=production requiere API_KEY configurada en .env "
+            "(ver backend/app/core/security.py — sin ella, /predict y /analyze-content "
+            "quedan sin autenticación). Si la exposición pública es intencionada, "
+            "declara ALLOW_UNAUTHENTICATED=true."
+        )
+
+    # A nivel WARNING y en cada arranque: una API pública puede ser una decisión
+    # válida, pero nunca debe pasar inadvertida al leer los logs.
+    logger.warning(
+        "API pública: /predict y /analyze-content aceptan peticiones sin autenticar "
+        "(ALLOW_UNAUTHENTICATED). Las defensas activas son el límite por IP, el "
+        "circuit breaker de cuota y el guardián de SSRF."
     )
+
+
+verify_auth_config(settings)
 
 # ── Rate limiting ────────────────────────────────────────────────────────────
 _RATE_WINDOW   = 60     # segundos
