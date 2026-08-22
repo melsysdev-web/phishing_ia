@@ -1,13 +1,19 @@
-// La URL por defecto vive en extension/config.js (BACKEND_DEFAULT_URL) para
-// que popup, sidebar, opciones y service worker no puedan desincronizarse.
+// La URL y la clave por defecto viven en extension/config.js
+// (BACKEND_DEFAULT_URL, BACKEND_DEFAULT_API_KEY) para que popup, sidebar,
+// opciones y service worker no puedan desincronizarse.
 
 async function _config() {
   return new Promise(resolve => {
     // storage.local, no .sync — evita que la API key viaje a la nube de la
     // cuenta del navegador junto con las demás preferencias sincronizadas.
+    //
+    // La clave por defecto hace que la extensión funcione recién instalada
+    // desde la tienda, donde nadie va a pasar por la página de Opciones. Lo
+    // que el usuario guarde ahí tiene prioridad, para poder apuntar a un
+    // backend propio.
     chrome.storage.local.get({
       backendUrl: BACKEND_DEFAULT_URL,
-      apiKey: "",
+      apiKey: BACKEND_DEFAULT_API_KEY,
     }, resolve);
   });
 }
@@ -21,7 +27,7 @@ const ApiClient = {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
         body: JSON.stringify({ url }),
-        signal: AbortSignal.timeout(60000),
+        signal: AbortSignal.timeout(ANALYSIS_TIMEOUT_MS),
       });
       if (!res.ok) throw new Error(`Error del servidor: ${res.status}`);
       const data = await res.json();
@@ -31,7 +37,7 @@ const ApiClient = {
       return data;
     } catch (err) {
       if (err.name === 'AbortError') {
-        throw new Error('Tiempo de espera agotado');
+        throw new Error('El servidor tardó demasiado en responder. Vuelve a intentarlo en un minuto.');
       }
       throw err;
     }
@@ -45,7 +51,7 @@ const ApiClient = {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
         body: JSON.stringify({ text }),
-        signal: AbortSignal.timeout(60000),
+        signal: AbortSignal.timeout(ANALYSIS_TIMEOUT_MS),
       });
       if (!res.ok) throw new Error(`Error del servidor: ${res.status}`);
       const data = await res.json();

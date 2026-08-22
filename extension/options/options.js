@@ -1,5 +1,6 @@
-// Definida en extension/config.js, cargado antes que este script.
+// Definidas en extension/config.js, cargado antes que este script.
 const DEFAULT_BACKEND = BACKEND_DEFAULT_URL;
+const DEFAULT_API_KEY = BACKEND_DEFAULT_API_KEY;
 
 function isLocalhost(url) {
   try {
@@ -26,7 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Cargar configuración guardada (storage.local: no se sincroniza a la
   // cuenta del navegador — la API key es una credencial, no una preferencia).
-  chrome.storage.local.get({ backendUrl: DEFAULT_BACKEND, apiKey: "" }, ({ backendUrl, apiKey }) => {
+  chrome.storage.local.get({ backendUrl: DEFAULT_BACKEND, apiKey: DEFAULT_API_KEY }, ({ backendUrl, apiKey }) => {
     backendInput.value = backendUrl;
     apiKeyInput.value  = apiKey;
     checkHttpWarning(backendUrl);
@@ -91,9 +92,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // Restablecer
   resetBtn.addEventListener("click", () => {
     backendInput.value = DEFAULT_BACKEND;
-    apiKeyInput.value  = "";
+    apiKeyInput.value  = DEFAULT_API_KEY;
     checkHttpWarning(DEFAULT_BACKEND);
-    chrome.storage.local.set({ backendUrl: DEFAULT_BACKEND, apiKey: "" }, () => {
+    chrome.storage.local.set({ backendUrl: DEFAULT_BACKEND, apiKey: DEFAULT_API_KEY }, () => {
       setFeedback(saveFeedback, "✓ Restablecido a valores por defecto", "ok");
       clearAfter(saveFeedback, 3000);
     });

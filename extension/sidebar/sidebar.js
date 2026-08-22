@@ -117,8 +117,38 @@ async function analyze(url) {
   } catch (err) {
     showError(getErrorMessage(err));
   } finally {
+    stopColdStartHint();
     btn.disabled = false;
   }
+}
+
+// ─── Aviso de arranque en frío ────────────────────────────────────────────────
+//
+// El free tier de Render duerme el servicio a los 15 minutos de inactividad, y
+// despertarlo son 60-90 s más la carga perezosa de los modelos. Un análisis
+// normal tarda 2-8 s, así que pasado COLD_START_HINT_MS lo que hay casi seguro
+// es un servidor arrancando. Decirlo importa: una espera larga sin explicación
+// se lee como que la extensión no funciona, y ese es el primer contacto de
+// quien acaba de instalarla.
+
+let _coldStartTimer = null;
+let _loadingSubTexto = null;
+
+function startColdStartHint() {
+  const sub = document.getElementById("loadingSub");
+  if (!sub) return;
+  if (_loadingSubTexto === null) _loadingSubTexto = sub.textContent;
+  clearTimeout(_coldStartTimer);
+  _coldStartTimer = setTimeout(() => {
+    sub.textContent = "El servidor estaba en reposo; puede tardar hasta dos minutos en despertar.";
+  }, COLD_START_HINT_MS);
+}
+
+function stopColdStartHint() {
+  clearTimeout(_coldStartTimer);
+  _coldStartTimer = null;
+  const sub = document.getElementById("loadingSub");
+  if (sub && _loadingSubTexto !== null) sub.textContent = _loadingSubTexto;
 }
 
 function showLoading() {
@@ -127,6 +157,7 @@ function showLoading() {
   const resultsEl = safeGetElement("results");
 
   loadingEl.classList.remove("hidden");
+  startColdStartHint();
   errorEl.classList.add("hidden");
   resultsEl.classList.add("hidden");
 
