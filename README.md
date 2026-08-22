@@ -1,6 +1,6 @@
 # AI Phishing Detector
 
-Extensión para Google Chrome que detecta sitios de phishing en tiempo real mediante un pipeline multicapa: análisis de URL, WHOIS, HTML, tres modelos de Machine Learning y tres APIs de inteligencia de amenazas.
+Extensión para navegadores basados en Chromium (Edge, Chrome) que detecta sitios de phishing en tiempo real mediante un pipeline multicapa: análisis de URL, WHOIS, HTML, tres modelos de Machine Learning y tres APIs de inteligencia de amenazas.
 
 ---
 
@@ -35,9 +35,8 @@ FastAPI Backend
         │   ├── Google Fact Check API
         │   └── RoBERTa URL Classifier
         │
-        ├── Grupo 2 — paralelo (2 workers):
-        │   ├── Random Forest (34 features URL+HTML)
-        │   └── Content Classifier (RoBERTa fake-news)
+        ├── Grupo 2 — depende del HTML:
+        │   └── Random Forest (34 features URL+HTML)
         │
         └── FusionEngine (RF×0.4 + RoBERTa×0.6)
                 └── RiskEngine → score 0-100 + reasons
@@ -50,7 +49,7 @@ Ver [`docs/architecture.md`](docs/architecture.md) para detalles completos.
 ## Requisitos
 
 - Python 3.12+
-- Google Chrome (para la extensión)
+- Un navegador basado en Chromium para la extensión (Edge o Chrome)
 - GPU NVIDIA con CUDA (recomendado para entrenamiento; no necesario para inferencia)
 - Claves de API (opcionales — el sistema funciona sin ellas con capacidad reducida):
   - `VIRUSTOTAL_API_KEY`
@@ -94,11 +93,19 @@ API_KEY=
 
 # Orígenes CORS adicionales separados por coma (ej: https://mi-app.com)
 ALLOWED_ORIGINS=
+
+# production | development (default). En production el backend no arranca sin
+# API_KEY, salvo que se declare ALLOW_UNAUTHENTICATED, y oculta el campo
+# `detail` de los errores para no filtrar internals
+ENVIRONMENT=development
+
+# Declara que la exposición pública es intencionada (ver "Despliegue")
+ALLOW_UNAUTHENTICATED=
 ```
 
 ### Modelos entrenados
 
-La carpeta `models/` tampoco está versionada (pesa ~820 MB: `random_forest_v2.pkl` 25 MB + `roberta_phishing_new/` 317 MB + `roberta_content/` 479 MB). Para correr el proyecto en otra máquina hay que copiarla manualmente desde una instalación existente, o reentrenar los modelos con los scripts de la sección [Modelos ML](#modelos-ml) — si el entrenamiento deja subcarpetas `checkpoint-*` dentro de `roberta_phishing_new/` o `roberta_content/`, se pueden borrar: son artefactos intermedios de HuggingFace `Trainer`, no se usan en inferencia y solo ocupan espacio. Sin `models/roberta_content/`, el Content Classifier cae automáticamente al fallback de HuggingFace (`hamzab/roberta-fake-news-classification`, se descarga solo); sin `random_forest_v2.pkl` o `roberta_phishing_new/`, esas señales fallan de forma controlada (el pipeline no se cae, ver `_safe()` en `phishing_service.py`).
+La carpeta `models/` tampoco está versionada (pesa ~820 MB: `random_forest_v2.pkl` 25 MB + `roberta_phishing_new/` 317 MB + `roberta_content/` 479 MB). Los pesos viven en [Hugging Face](https://huggingface.co/mel3601/phishing-ia-models) y el `backend/Dockerfile` los descarga durante el build, así que el despliegue con Docker los trae solos. **En local no**: los cargadores (`joblib.load`, `from_pretrained` sobre una ruta) leen de disco y no descargan nada, de modo que hay que copiar la carpeta desde una instalación existente, bajarla del repo de Hugging Face, o reentrenar con los scripts de la sección [Modelos ML](#modelos-ml) — si el entrenamiento deja subcarpetas `checkpoint-*` dentro de `roberta_phishing_new/` o `roberta_content/`, se pueden borrar: son artefactos intermedios de HuggingFace `Trainer`, no se usan en inferencia y solo ocupan espacio. Sin `models/roberta_content/`, el Content Classifier cae automáticamente al fallback de HuggingFace (`hamzab/roberta-fake-news-classification`, se descarga solo); sin `random_forest_v2.pkl` o `roberta_phishing_new/`, esas señales fallan de forma controlada (el pipeline no se cae, ver `_safe()` en `phishing_service.py`).
 
 ---
 
@@ -122,6 +129,10 @@ El servidor queda disponible en `http://localhost:8000`.
 | `GET` | `/experiment/status` | Configuración activa del experimento de scoring |
 | `GET` | `/cache/stats` | Estadísticas del cache en memoria |
 | `DELETE` | `/cache` | Limpiar cache |
+| `GET` | `/` | Comprobación básica |
+| `GET` | `/metrics` | Métricas Prometheus (fuera del esquema OpenAPI) |
+
+Solo `/`, `/health`, `/metadata` y `/metrics` son públicos; el resto va detrás de `require_api_key`, que es un no-op cuando `API_KEY` está vacía.
 
 Contrato completo, ejemplos de curl y códigos de error: [`docs/api.md`](docs/api.md).
 
@@ -177,12 +188,22 @@ Coste medido por etapa al atender `/predict`:
 
 ## Instalar la Extensión
 
-1. Abrir Chrome → `chrome://extensions/`
-2. Activar **Modo desarrollador** (esquina superior derecha)
+1. Abrir el navegador → `edge://extensions/` (o `chrome://extensions/`)
+2. Activar **Modo desarrollador**
 3. Clic en **Cargar descomprimida**
 4. Seleccionar la carpeta `extension/`
 
-La extensión abre el **popup** al hacer clic en el icono. El **sidebar** se abre desde el botón de paneles laterales de Chrome. La URL del backend se configura en **⚙️ Configuración** (default: `http://localhost:8000`).
+La extensión abre el **popup** al hacer clic en el icono. El **sidebar** se abre desde el botón de paneles laterales del navegador. La URL del backend y la clave se definen en `extension/config.js` (`BACKEND_DEFAULT_URL`, que apunta al backend desplegado) y se pueden cambiar en **⚙️ Configuración** — útil para apuntar a `http://localhost:8000` mientras se desarrolla.
+
+### Empaquetar para la tienda
+
+```powershell
+.\scripts\package_extension.ps1
+```
+
+Nunca comprimir `extension/` a mano: el `manifest.json` debe quedar en la **raíz** del ZIP, o la tienda lo rechaza con *"Manifest file is missing or unreadable"*. El script valida las referencias del manifest, que `config.js` esté incluido, que la URL del backend no sea `localhost` y esté declarada en `host_permissions`, que el modelo de autenticación sea coherente y que ningún HTML cargue código remoto (Manifest V3 lo prohíbe). Después vuelve a verificar el ZIP ya construido y lo borra si algo falla.
+
+Para probar el paquete de verdad hay que descomprimirlo en una carpeta limpia y cargar **esa** carpeta: cargar `extension/` directamente oculta justamente los fallos de empaquetado.
 
 ---
 
@@ -226,12 +247,23 @@ venv\Scripts\python backend/app/roberta/content_trainer_es.py
 ## Pruebas
 
 ```powershell
-# Suite completa
+# Suite completa — 535 tests, sin necesidad de modelos ni claves de API
 venv\Scripts\python -m pytest
+
+# Un solo archivo
+venv\Scripts\python -m pytest backend/tests/test_risk_engine.py -v
+
+# Linter
+venv\Scripts\python -m ruff check .
 
 # Smoke test del Random Forest
 venv\Scripts\python -m backend.app.random_forest.test_predict
+
+# Verificar un despliegue (llama a /predict; /health no sirve como prueba)
+venv\Scripts\python scripts\smoke_test.py --base-url https://<servicio>.onrender.com
 ```
+
+`tests/conftest.py` sustituye los cargadores de modelos antes de que se importe nada del backend, así que la suite corre sin archivos `.pkl` ni modelos de HuggingFace presentes.
 
 ---
 
@@ -257,7 +289,9 @@ venv\Scripts\python -m backend.app.random_forest.test_predict
 | [`docs/TESTING.md`](docs/TESTING.md) | Estrategia de pruebas y cobertura |
 | [`docs/EXTENSION_STABILITY.md`](docs/EXTENSION_STABILITY.md) | Código defensivo de la extensión y los fallos que absorbe |
 | [`SCORE_IMPROVEMENTS_STRATEGY.md`](SCORE_IMPROVEMENTS_STRATEGY.md) | Qué entregó el trabajo de scoring y qué sigue bloqueado por falta de datos |
-| [`docs/EDGE_ADDON_UPLOAD.md`](docs/EDGE_ADDON_UPLOAD.md) | Publicación en Microsoft Edge Add-ons |
+| [`docs/EDGE_ADDON_UPLOAD.md`](docs/EDGE_ADDON_UPLOAD.md) | Publicación en Microsoft Edge Add-ons, paso a paso |
+| [`docs/EDGE_STORE_DESCRIPTIONS.md`](docs/EDGE_STORE_DESCRIPTIONS.md) | Textos de la ficha: descripciones, propósito único, justificación de cada permiso y comprobaciones previas al envío |
+| [`PRIVACY_POLICY.md`](PRIVACY_POLICY.md) | Qué datos salen del navegador y qué no |
 | [`docs/changelog.md`](docs/changelog.md) | Historial de cambios |
 
 ---
@@ -276,13 +310,17 @@ phishing_ia/
 │   ├── analyzers/                  # HTML fetch + feature extraction
 │   └── utils/                      # URL features, WHOIS, feature mapper, cache
 ├── extension/
+│   ├── config.js                   # URL y clave del backend — definición única
 │   ├── popup/                      # UI mínima con gauge SVG
 │   ├── sidebar/                    # Análisis completo
 │   ├── options/                    # Configuración del backend
+│   ├── background/                 # Service worker + health check periódico
 │   ├── services/api_client.js      # Cliente HTTP de la extensión
+│   ├── utils/error_messages.js     # Mensajes de error legibles
 │   └── manifest.json
 ├── models/                         # Modelos entrenados (.pkl, directorios HF)
 ├── datasets/                       # Datasets de entrenamiento
 ├── training/                       # Scripts de entrenamiento RF
+├── scripts/                        # Empaquetado, smoke test, memoria, entrenamiento
 └── docs/                           # Documentación
 ```
