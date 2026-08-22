@@ -20,36 +20,40 @@
 
 ## 📦 ZIP Contents
 
+> **El `manifest.json` va en la RAÍZ del ZIP, no dentro de una carpeta.**
+> Empaquetar la carpeta `extension/` hace que la tienda responda
+> *"Manifest file is missing or unreadable"* y rechace la subida. Genera el
+> paquete con `scripts\package_extension.ps1`, que lo valida antes de crearlo.
+
 ```
-phishing-detector-extension.zip
-└── extension/
-    ├── manifest.json (v3)
-    ├── icons/
-    │   ├── icon16.png
-    │   ├── icon48.png
-    │   └── icon128.png
-    ├── popup/
-    │   ├── popup.html
-    │   ├── popup.css (with anime.js)
-    │   └── popup.js
-    ├── sidebar/
-    │   ├── sidebar.html
-    │   ├── sidebar.css (with anime.js)
-    │   └── sidebar.js
-    ├── options/
-    │   ├── options.html
-    │   └── options.js
-    ├── background/
-    │   ├── health_check.js
-    │   └── service_worker.js
-    ├── services/
-    │   └── api_client.js
-    ├── utils/
-    │   └── error_messages.js
-    ├── content/
-    │   └── content.js (placeholder)
-    └── assets/
-        └── ... (images, etc)
+ai-phishing-detector-1.0.0.zip
+├── manifest.json  ← en la RAÍZ, no dentro de una carpeta
+├── config.js     ← URL y clave del backend; sin él nada arranca
+├── background/
+│   ├── background.js
+│   └── health_check.js
+├── content/
+│   └── content.js
+├── icons/
+│   ├── icon128.png
+│   ├── icon16.png
+│   └── icon48.png
+├── options/
+│   ├── options.css
+│   ├── options.html
+│   └── options.js
+├── popup/
+│   ├── popup.css
+│   ├── popup.html
+│   └── popup.js
+├── services/
+│   └── api_client.js
+├── sidebar/
+│   ├── sidebar.css
+│   ├── sidebar.html
+│   └── sidebar.js
+└── utils/
+    └── error_messages.js
 ```
 
 **Size**: 30 KB (uncompressed: ~150 KB)
@@ -300,15 +304,17 @@ Check extension/manifest.json:
 ### Upload Error: "Unsupported format"
 
 **Solution**:
-- Ensure ZIP contains `extension/` folder
-- Not `phishing_ia/` or bare files
-- ZIP structure must be:
+- El ZIP debe contener el **contenido** de `extension/`, no la carpeta
+- `manifest.json` tiene que quedar en la raíz del archivo
+- Estructura correcta:
   ```
-  phishing-detector-extension.zip
-  └── extension/
-      ├── manifest.json
-      └── ...
+  ai-phishing-detector-1.0.0.zip
+  ├── manifest.json
+  ├── config.js
+  └── ...
   ```
+- Usa `.\scripts\package_extension.ps1`: verifica esto sobre el ZIP ya
+  construido y lo borra si el manifest no quedó en la raíz.
 
 ### Review Rejection: "Unclear permissions"
 

@@ -41,6 +41,12 @@ venv\Scripts\python scripts\memory_check.py --concurrency 2
 ```
 Fails if the kernel OOM-kills the container. Deliberately not in CI — the image build is too heavy for a per-PR job.
 
+**Package the extension for the store** (never zip `extension/` by hand — the manifest must land at the ZIP root, and the 1.0.4 package shipped broken because it didn't):
+```powershell
+.\scripts\package_extension.ps1
+```
+Validates the manifest's file references, that `config.js` is present, that `BACKEND_DEFAULT_URL` is not localhost and is declared in `host_permissions`, and that the auth model is coherent (`BACKEND_IS_PUBLIC` vs `BACKEND_DEFAULT_API_KEY`). Refuses to emit a ZIP if any check fails, then re-verifies the built archive and deletes it if `manifest.json`/`config.js` aren't at the root.
+
 **Verify a deployment** (`/health` and `/metadata` do *not* verify one — see "Memory budget" below):
 ```powershell
 venv\Scripts\python scripts\smoke_test.py --base-url https://<service>.onrender.com
@@ -96,7 +102,7 @@ Results are cached in-memory (TTL 10 min, max 500 entries) keyed by URL.
 
 - `config.py` loads `.env` into a `settings` singleton: `virustotal_api_key`, `safe_browsing_api_key`, `fact_check_api_key`, `api_key` (backend auth, empty = disabled), `allowed_origins` (comma-separated extra CORS origins).
 - `security.py` — `require_api_key` is a FastAPI dependency applied to the whole router in `routes.py` (`APIRouter(dependencies=[Depends(require_api_key)])`). It reads the `X-API-Key` header; if `settings.api_key` is empty the check is a no-op (auth disabled), otherwise the header must match exactly or it 403s.
-- `settings.environment` (`ENVIRONMENT` env var, default `development`) — if set to `production` with no `API_KEY` configured, `main.py` raises `RuntimeError` at startup instead of booting an unauthenticated backend.
+- `settings.environment` (`ENVIRONMENT` env var, default `development`) — if set to `production` with no `API_KEY` configured, `verify_auth_config()` in `main.py` raises `RuntimeError` at startup instead of booting an unauthenticated backend. The deliberate case is allowed but must be declared: `ALLOW_UNAUTHENTICATED=true` lets it boot and logs a WARNING on every startup. This deployment runs that way on purpose — a store-distributed extension cannot hold a secret, so the defences are the per-IP rate limit, the VirusTotal quota circuit breaker and the SSRF guard. Do **not** work around the check by dropping `ENVIRONMENT=production`: that also re-enables the `detail` field in error responses, which is unrelated to auth.
 - `main.py` also registers a custom `RateLimitMiddleware`: 30 requests/60s per client IP, scoped to `/predict` and `/analyze-content` only, returns 429 with `Retry-After: 60` when exceeded (keyed by IP only, not by path — the two endpoints share one bucket). The in-memory `_rate_store` is bounded to 10,000 distinct IPs (`_RATE_MAX_IPS`), evicting the oldest entry once full, so it can't grow unbounded from one-off/spoofed IPs. It also registers `RequestLoggingMiddleware`, which logs method/path/status/latency/IP for every request.
 - `require_api_key` compares the `X-API-Key` header with `hmac.compare_digest`, not `==`, to avoid a timing side-channel on the key comparison.
 - CORS (`main.py`) uses `allow_origin_regex` (not a static list) to accept any `chrome-extension://` origin plus `localhost`/`127.0.0.1`, extended with `settings.allowed_origins` if set.
@@ -120,6 +126,7 @@ All three loaders resolve this directory via `get_models_dir()` in `backend/app/
 - `FACT_CHECK_API_KEY` — Google Fact Check Tools API
 - `API_KEY` — backend's own auth key, checked against the `X-API-Key` request header (empty disables auth)
 - `ALLOWED_ORIGINS` — extra CORS origins beyond the built-in chrome-extension/localhost regex
+- `ALLOW_UNAUTHENTICATED` — set to `true` to declare a deliberately public backend; without it, `ENVIRONMENT=production` with an empty `API_KEY` aborts startup
 - `EXPERIMENT_ROLLOUT` — fraction of traffic (0.0–1.0) routed to the candidate scoring variant; `0.0`/unset/out-of-range disables the experiment
 - `EXPERIMENT_VARIANT` — name reported for the candidate variant (default `candidate`)
 - `MAX_CONCURRENT_ANALYSES` — analyses allowed at once across `/predict` + `/analyze-content` (default `1`); above 1 on a 512 MB instance the worker gets OOM-killed, see "Memory budget" below
@@ -272,7 +279,8 @@ Quick summary:
 - Configure env vars:
   - `VIRUSTOTAL_API_KEY`, `SAFE_BROWSING_API_KEY`, `FACT_CHECK_API_KEY` — threat-intel APIs
   - `API_KEY` (optional) — backend authentication key
-  - `ENVIRONMENT` — `production` or `development`. Does **not** affect model loading (always lazy). In `production` the backend refuses to start without `API_KEY`, and error responses omit the `detail` field so internals don't leak
+  - `ENVIRONMENT` — `production` or `development`. Does **not** affect model loading (always lazy). In `production` the backend refuses to start without `API_KEY` unless `ALLOW_UNAUTHENTICATED=true` is set, and error responses omit the `detail` field so internals don't leak
+  - `ALLOW_UNAUTHENTICATED` — declares an intentionally public backend, so `production` boots without `API_KEY`. Must stay in sync with `BACKEND_IS_PUBLIC` in `extension/config.js`
   - `FORWARDED_ALLOW_IPS=*` — allow X-Forwarded-For from Render's proxy
 - Models download from HuggingFace Hub during build (~60-90s cold start); lazy loading on first request in production
 - Enable Auto-Deploy on push to `main`

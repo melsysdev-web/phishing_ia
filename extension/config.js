@@ -10,26 +10,26 @@
 const BACKEND_DEFAULT_URL = "https://phishing-ia-smmy.onrender.com";
 
 /**
- * Clave que la extensión envía en X-API-Key.
+ * El backend es PÚBLICO: no exige X-API-Key.
  *
- * NO ES UN SECRETO, y no puede serlo: el paquete de la tienda es descargable y
- * descomprimible por cualquiera, así que esta cadena es pública en cuanto se
- * publica la extensión. Ninguna credencial que viaje en un cliente puede
- * ocultarse; tratarla como secreta solo llevaría a confiar en una protección
- * que no existe.
+ * Es una decisión, no un descuido, y por eso se declara en los dos extremos:
+ * aquí con BACKEND_IS_PUBLIC y en el backend con ALLOW_UNAUTHENTICATED=true.
+ * Sin esa declaración explícita el backend se niega a arrancar en producción
+ * sin clave, precisamente para que una API abierta nunca sea un accidente.
  *
- * Para qué sirve entonces: corta el tráfico automatizado que golpea la URL del
- * backend a pelo, que es la mayoría. Lo que de verdad protege el servicio es
- * otra cosa — el límite de 30 peticiones/minuto por IP, el circuit breaker de
- * cuota de VirusTotal y el guardián de SSRF del fetcher de HTML.
+ * El motivo: el paquete de la tienda es descargable y descomprimible por
+ * cualquiera, así que una clave embebida aquí sería pública desde el primer
+ * día. Exigirla solo daría una sensación de control que no existe.
  *
- * Si alguien abusa: se rota el valor en Render (Environment Group), se cambia
- * aquí y se publica una versión nueva de la extensión.
+ * Lo que de verdad protege el servicio es otra cosa — el límite de 30
+ * peticiones/minuto por IP, el circuit breaker de cuota de VirusTotal y el
+ * guardián de SSRF del fetcher de HTML.
  *
- * Debe coincidir exactamente con API_KEY en el Environment Group de Render.
- * Vacía = la extensión no manda cabecera, y el backend responderá 403 a todo
- * salvo que también tenga API_KEY vacía.
+ * Si en el futuro se cierra el backend: poner la clave en BACKEND_DEFAULT_API_KEY,
+ * BACKEND_IS_PUBLIC = false, API_KEY en el Environment Group de Render, quitar
+ * ALLOW_UNAUTHENTICATED y publicar una versión nueva de la extensión.
  */
+const BACKEND_IS_PUBLIC = true;
 const BACKEND_DEFAULT_API_KEY = "";
 
 /**
