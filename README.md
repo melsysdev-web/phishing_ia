@@ -151,6 +151,7 @@ El backend se puede correr con Docker (`docker compose up backend`, ver `docker-
 
 - Poner un proxy inverso con TLS delante (nginx, Caddy, Traefik, etc.) — el contenedor del backend no debe exponerse directamente a internet.
 - Configurar `ENVIRONMENT=production` y `API_KEY` en `.env`. Con `ENVIRONMENT=production`, el backend **rehúsa arrancar** si `API_KEY` está vacío (evita quedar sin autenticación por descuido).
+- Si la exposición pública es intencionada, declararla con `ALLOW_UNAUTHENTICATED=true`: el backend arranca sin clave y lo avisa por WARNING en cada arranque. Es como corre el despliegue público de este proyecto, porque la extensión se distribuye en una tienda y su paquete no puede guardar un secreto. Quitar `ENVIRONMENT=production` para esquivar la comprobación es peor: también reactiva el campo `detail` en las respuestas de error.
 - Revisar `ALLOWED_ORIGINS` si la extensión/cliente no corre desde `chrome-extension://` o `localhost`.
 
 ### Memoria requerida

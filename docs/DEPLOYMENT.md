@@ -101,13 +101,30 @@ a per-PR job.
 | `VIRUSTOTAL_API_KEY` | VirusTotal threat intel | `abc123...` |
 | `SAFE_BROWSING_API_KEY` | Google Safe Browsing API | `def456...` |
 | `FACT_CHECK_API_KEY` | Google Fact Check Tools API | `ghi789...` |
-| `API_KEY` | Backend authentication (X-API-Key header) | `a7f3c9e2b1d4f6a8c5e2b9d1f4a7c3e5...` |
+| `API_KEY` | Backend authentication (X-API-Key header). **Empty in this deployment** — see `ALLOW_UNAUTHENTICATED` below | *(empty)* |
 | `FORWARDED_ALLOW_IPS` | Trust X-Forwarded-For from proxy | `*` (Render safe) |
-| `ENVIRONMENT` | `production` or `development`. Does not affect model loading (always lazy); `production` refuses to boot without `API_KEY` and hides error internals | `production` |
+| `ENVIRONMENT` | `production` or `development`. Does not affect model loading (always lazy); `production` refuses to boot without `API_KEY` unless `ALLOW_UNAUTHENTICATED=true`, and hides error internals | `production` |
+| `ALLOW_UNAUTHENTICATED` | Declares a deliberately public backend so `production` boots with no `API_KEY`. Logs a WARNING on every startup | `true` |
 | `ALLOWED_ORIGINS` | Extra CORS origins (comma-separated) | `https://example.com,https://other.com` |
 | `MAX_CONCURRENT_ANALYSES` | Analyses allowed at once (shared by `/predict` and `/analyze-content`) | `1` (do not raise on 512 MB) |
 | `ANALYSIS_QUEUE_TIMEOUT` | Seconds queued before a 503 | `30` |
 | `LOG_LEVEL` | Root log level | `INFO` |
+
+### Why this backend is public
+
+`API_KEY` is empty and `ALLOW_UNAUTHENTICATED=true` on purpose. The extension is
+distributed through a store, so its package can be downloaded and unzipped by
+anyone: a key shipped inside it would be public from day one, and requiring one
+would only create the illusion of a control that does not exist.
+
+The guard still refuses to boot a `production` backend with no key *unless the
+decision is declared*, so an unauthenticated API can never happen by accident.
+It must stay in sync with `BACKEND_IS_PUBLIC` in `extension/config.js`;
+`scripts/package_extension.ps1` refuses to build a package where the two
+disagree.
+
+What actually protects the service: the 30 req/min per-IP rate limit, the
+VirusTotal quota circuit breaker, and the SSRF guard in the HTML fetcher.
 
 ### Models on Render
 

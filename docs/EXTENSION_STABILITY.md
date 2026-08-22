@@ -8,22 +8,32 @@
 
 ## Problems Fixed
 
-### 1. **CDN Dependency Crash** (anime.js)
-**Problem**: Extension relied on jsdelivr CDN for animations. If CDN is down or blocked, extension crashes completely.
+### 1. **CDN Dependency** (anime.js) — removed entirely, 2026-08-21
+**Problem**: The extension loaded anime.js from the jsdelivr CDN. This was worse
+than a stability risk: Manifest V3 forbids loading remote code, so the store
+rejects any package that does it, and the MV3 content security policy was
+already blocking the script at runtime.
 
-**Solution**: Added polyfill in HTML before loading:
-```html
-<script>
-  if (!window.anime) {
-    window.anime = function() { return {}; };
-    anime.timeline = function() { return { add: function() { return this; } }; };
-    anime.set = function() { return {}; };
-    anime.stagger = function(delay) { return delay; };
-  }
-</script>
+**Original mitigation**: a polyfill declared before the CDN script, so the UI
+still rendered when the CDN failed.
+
+**Actual resolution**: the `<script src="https://cdn.jsdelivr.net/...">` tags
+were removed from `popup.html` and `sidebar.html`. Since the CSP had been
+blocking them all along, the polyfill was what actually ran — so nothing that
+was working got lost. That stub is now the only definition, and calls to
+`anime()` are inert.
+
+```javascript
+// The stub that now stands alone in popup.html / sidebar.html
+window.anime = function() { return {}; };
+anime.timeline = function() { return { add: function() { return this; } }; };
+anime.set = function() { return {}; };
+anime.stagger = function(delay) { return delay; };
 ```
 
-**Behavior**: Extensions still works without animations if CDN fails.
+**Behavior**: the extension is fully self-contained — it requests no host other
+than its own backend. `scripts/package_extension.ps1` now fails the build if any
+HTML file references a remote script, so this cannot come back.
 
 ---
 
@@ -76,7 +86,9 @@ if (isAnimeAvailable()) {
 }
 ```
 
-**Behavior**: UI renders instantly if anime unavailable, still functional.
+**Behavior**: UI renders instantly if anime unavailable, still functional. Since
+the CDN was removed this is the permanent path: animations are never available,
+and every render falls through to the instant branch.
 
 ---
 

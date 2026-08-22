@@ -7,7 +7,8 @@ pipeline interno ver [`architecture.md`](architecture.md).
 - **Base URL (local):** `http://localhost:8000`
 - **Swagger UI interactivo:** `http://localhost:8000/docs`
 - **OpenAPI spec (importable a Postman):** `http://localhost:8000/openapi.json`
-- **Auth:** header `X-API-Key`, requerido solo si el backend tiene `API_KEY` configurada en `.env` (por defecto está vacío = sin autenticación en local)
+- **Auth:** header `X-API-Key`, requerido solo si el backend tiene `API_KEY` configurada en `.env` (por defecto está vacío = sin autenticación en local).
+  El despliegue público de producción corre **sin autenticación a propósito** (`ALLOW_UNAUTHENTICATED=true`): la extensión se distribuye en una tienda y no puede guardar un secreto. Los ejemplos de abajo incluyen la cabecera por si tu instancia sí la exige.
 
 ## Endpoints
 

@@ -319,7 +319,7 @@ Local visibility via `docker-compose.yml` (not deployed to Render):
 
 ## Testing
 
-✅ **517 tests passing** — Unit + integration tests with 100% model mocking (no real model files needed).
+✅ **535 tests passing** — Unit + integration tests with 100% model mocking (no real model files needed).
 
 **→ See [`docs/TESTING.md`](docs/TESTING.md) for test strategy and audit results (49 new tests added 2026-08-17).**
 
