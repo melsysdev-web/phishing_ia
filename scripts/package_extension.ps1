@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Empaqueta extension/ en un ZIP subible a Edge Add-ons / Chrome Web Store.
 
@@ -141,7 +141,13 @@ if ($errors.Count -gt 0) {
 # CreateFromDirectory mete el CONTENIDO del directorio en la raiz del ZIP.
 # Empaquetar la carpeta extension/ en su lugar es lo que hacia que la tienda
 # respondiera "Manifest file is missing or unreadable".
-$outPath = Join-Path $repoRoot $OutDir
+# -OutDir admite tanto una ruta relativa al repo como una absoluta; sin esta
+# distincion, Join-Path concatena las dos y produce una ruta invalida.
+if ([System.IO.Path]::IsPathRooted($OutDir)) {
+    $outPath = $OutDir
+} else {
+    $outPath = Join-Path $repoRoot $OutDir
+}
 if (-not (Test-Path $outPath)) { New-Item -ItemType Directory -Path $outPath | Out-Null }
 $zip = Join-Path $outPath "ai-phishing-detector-$version.zip"
 if (Test-Path $zip) { Remove-Item $zip -Force }
